@@ -1,38 +1,35 @@
 {
   "schemaVersion": 1,
-  "id": "modid",
+  "id": "backtools",
   "version": "${version}",
-
-  "name": "Example Mod",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "name": "BackTools",
+  "description": "Shows the last used tool on the player's back. Purely aesthetic.",
   "authors": [
-    "Me!"
+    "Daniking"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/backtools",
+    "sources": "https://github.com/DanikingRD/BackTools"
   },
-
-  "license": "CC0-1.0",
+  "license": "GNU Lesser General Public License v3.0",
   "icon": "assets/modid/icon.png",
-
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
     "main": [
-      "net.fabricmc.example.ExampleMod"
+      "com.daniking.backtools.BackTools"
+    ],
+    "client": [
+      "com.daniking.backtools.ClientSetup"
     ]
   },
   "mixins": [
-    "modid.mixins.json"
+    "backtools.mixins.json"
   ],
 
   "depends": {
-    "fabricloader": ">=0.13.3",
+    "fabricloader": "*",
     "fabric": "*",
-    "minecraft": "1.18.x",
-    "java": ">=17"
-  },
-  "suggests": {
-    "another-mod": "*"
+    "minecraft": "1.18.*",
+    "cloth-config2": "*"
   }
 }
