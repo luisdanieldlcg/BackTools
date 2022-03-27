@@ -55,9 +55,6 @@ public class ConfigHandler {
             ClientSetup.config.disabledTools.forEach(disabledTool -> DISABLED_TOOLS.add(new Identifier(disabledTool)));
         }
         ConfigHandler.parseOrientation();
-        TOOL_ORIENTATIONS.forEach((aClass, integer) -> {
-            System.out.println("Class: " + aClass);
-        });
     }
 
     private static void parseOrientation() {
