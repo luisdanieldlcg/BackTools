@@ -16,10 +16,9 @@ public class HeldItemContext {
     public void tick(ItemStack main, ItemStack off) {
 
         if (droppedEntity != null && !droppedEntity.getStack().isEmpty()) {
-            // TODO: Not render back tool when the item is dropped.
-            // This was not working correctly.
-//             resetIfMatches(droppedEntity.getStack());
-//             return;
+            this.reset(droppedEntity.getStack());
+            droppedEntity = null;
+            return;
         }
 
         //check to see if we should remove the main hand back tool
@@ -58,10 +57,8 @@ public class HeldItemContext {
         }
     }
 
-    private void resetIfMatches(ItemStack entityStack) {
+    private void reset(ItemStack entityStack) {
         if (areStacksEqual(entityStack, previousMain)) {
-            System.out.println(entityStack);
-            System.out.println(previousMain);
             previousMain = ItemStack.EMPTY;
         }
         if (areStacksEqual(entityStack, activeMain)) {

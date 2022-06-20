@@ -36,7 +36,11 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
     public void render(MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, T player, float f, float g, float h, float j, float k, float l) {
 
         if (!(player.isPartVisible(PlayerModelPart.CAPE) && player.getCapeTexture() != null) && !player.isInvisible() && !player.isSleeping() && ClientSetup.HELD_TOOLS.containsKey(player)) {
-            HeldItemContext ctx = ClientSetup.HELD_TOOLS.get(player);
+            final HeldItemContext ctx = ClientSetup.HELD_TOOLS.get(player);
+
+            if (ctx.droppedEntity != null) {
+                return;
+            }
             this.setRenders(ctx.previousMain, ctx.previousOff, player.getMainArm());
             matrixStack.push();
             this.getContextModel().body.rotate(matrixStack);
