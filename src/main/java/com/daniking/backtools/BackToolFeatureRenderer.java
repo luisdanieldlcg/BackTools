@@ -10,6 +10,7 @@ import net.minecraft.client.render.entity.PlayerModelPart;
 import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
+import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformation;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
@@ -26,9 +27,10 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
     public ItemStack offStack = ItemStack.EMPTY;
     public Arm mainArm = Arm.RIGHT;
 
-    public BackToolFeatureRenderer(FeatureRendererContext<T, M> featureRendererContext) {
-        super(featureRendererContext);
+    public BackToolFeatureRenderer(FeatureRendererContext<T, M> context, HeldItemRenderer heldItemRenderer) {
+        super(context, heldItemRenderer);
     }
+
 
     @Override
     public void render(MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, T player, float f, float g, float h, float j, float k, float l) {
