@@ -12,13 +12,14 @@ import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformation;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ShieldItem;
 import net.minecraft.util.Arm;
-import net.minecraft.util.math.Vec3f;
+import net.minecraft.util.math.RotationAxis;
 
 @Environment(EnvType.CLIENT)
 public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M extends PlayerEntityModel<T>> extends HeldItemFeatureRenderer<T, M> {
@@ -64,22 +65,22 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
                 float scale = 1.5F;
                 matrices.scale(scale, scale, scale);
                 if (this.mainArm == Arm.LEFT) {
-                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180F));
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
+                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-25F));
                     matrices.translate(-2.5F/16F, 2F/16F, 1.25F/16F);
-                    matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(-25F));
                 } else {
                     matrices.translate(-1F / 16F, 0.25F / 16F, 1.0F / 16F);
-                    matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(25F));
+                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
             }
             if (!bl) {
                 final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
-                matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(i));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
             if (ticks > 0) {
-                matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion((ticks + partialTicks) * 40F));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((ticks + partialTicks) * 40F));
             }
-            MinecraftClient.getInstance().getItemRenderer().renderItem(this.mainStack, ModelTransformation.Mode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(this.mainStack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
         }
         if (!this.offStack.isEmpty()) {
             if (this.mainArm == Arm.LEFT) {
@@ -90,22 +91,22 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
                 float scale = 1.5F;
                 matrices.scale(scale, scale, scale);
                 if (this.mainArm == Arm.RIGHT) {
-                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180F));
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
                     matrices.translate(-2.5F/16F, 2F/16F, 1.25F/16F);
-                    matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(-25F));
+                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-25F));
                 } else {
                     matrices.translate(-1F / 16F, 0.25F / 16F, 1.0F / 16F);
-                    matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(25F));
+                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
             }
             if (!bl) {
                 final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
-                matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(i));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
             if (ticks > 0) {
-                matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion((ticks + partialTicks) * 40F));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((ticks + partialTicks) * 40F));
             }
-            MinecraftClient.getInstance().getItemRenderer().renderItem(this.offStack, ModelTransformation.Mode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(this.offStack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
         }
     }
 

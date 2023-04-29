@@ -3,8 +3,8 @@ package com.daniking.backtools;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.item.*;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.registry.Registry;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,7 +32,7 @@ public class ConfigHandler {
     }
 
     public static boolean isItemEnabled(final Item item) {
-        final Identifier registryName = new Identifier(Registry.ITEM.getId(item).getNamespace(), item.toString());
+        final Identifier registryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
         if (!ConfigHandler.ENABLED_TOOLS.isEmpty()) {//whitelist only
             return ConfigHandler.ENABLED_TOOLS.contains(registryName);
         }

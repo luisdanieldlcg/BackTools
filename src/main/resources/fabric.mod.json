@@ -5,7 +5,7 @@
   "name": "BackTools",
   "description": "Shows the last used tool on the player's back. Purely aesthetic.",
   "authors": [
-    "Daniking"
+    "DanikingRD"
   ],
   "contact": {
     "homepage": "https://www.curseforge.com/minecraft/mc-mods/backtools",
@@ -29,7 +29,7 @@
   "depends": {
     "fabricloader": "*",
     "fabric": "*",
-    "minecraft": "1.19.*",
+    "minecraft": ">=1.19.4",
     "cloth-config2": "*"
   }
 }

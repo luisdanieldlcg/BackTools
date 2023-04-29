@@ -77,8 +77,6 @@ public class HeldItemContext {
         if(a.isEmpty() || b.isEmpty() || a.hasNbt() && !b.hasNbt() || !a.hasNbt() && b.hasNbt() || a.getItem() != b.getItem()) {
             return false;
         }
-        return a.isItemEqualIgnoreDamage(b);
+        return a.isOf(b.getItem());
     }
-
-
 }
