@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static java.lang.Boolean.TRUE;
-
 @Environment(EnvType.CLIENT)
 @Config(name = "BackTools")
 public class BackToolsConfig implements ConfigData {

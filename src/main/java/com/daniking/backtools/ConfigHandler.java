@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import static java.lang.Boolean.TRUE;
-
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
 
