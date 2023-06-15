@@ -18,6 +18,7 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ShieldItem;
+import net.minecraft.item.SwordItem;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
 
@@ -77,11 +78,24 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
                 final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
+            if (ConfigHandler.isBeltTool(this.mainStack.getItem()) /*this.mainStack.getItem() instanceof SwordItem*/) {
+                float swordScale = 0.8F;
+                matrices.scale(swordScale, swordScale, swordScale);
+
+                if (this.mainArm == Arm.LEFT) {
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90F));
+                    matrices.translate(0.19F, 0.6F, -0.33F);
+                } else {
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(270F));
+                    matrices.translate(0.19F, 0.6F, 0.33F);
+                }
+            }
             if (ticks > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((ticks + partialTicks) * 40F));
             }
             MinecraftClient.getInstance().getItemRenderer().renderItem(this.mainStack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
         }
+
         if (!this.offStack.isEmpty()) {
             if (this.mainArm == Arm.LEFT) {
                 matrices.scale(-1F, 1F, -1F);

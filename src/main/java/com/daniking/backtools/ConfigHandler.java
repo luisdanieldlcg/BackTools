@@ -10,13 +10,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+import static java.lang.Boolean.TRUE;
+
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
 
     public static final HashMap<Class<?>, Integer> TOOL_ORIENTATIONS = new HashMap<>();
     public static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
     public static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
-
+    public static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
     public static int getToolOrientation(Item item) {
         return getToolOrientation(item.getClass());
     }
@@ -43,6 +45,16 @@ public class ConfigHandler {
         }
         //else allow default items
         return item instanceof MiningToolItem || item instanceof SwordItem || item instanceof ShieldItem || item instanceof TridentItem || item instanceof BowItem || item instanceof ShearsItem || item instanceof CrossbowItem || item instanceof FishingRodItem;
+    }
+
+    public static  boolean isBeltTool(final Item item) {
+        final Identifier registeryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
+        ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(new Identifier(beltTool)));
+        
+        if (BELT_TOOLS.contains(registeryName)) {
+            return true;
+        }
+        return false;
     }
 
     public static void init() {
