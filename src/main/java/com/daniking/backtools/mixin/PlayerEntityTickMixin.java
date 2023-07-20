@@ -15,7 +15,7 @@ public abstract class PlayerEntityTickMixin {
     @Inject(at = @At("HEAD"), method = "tick")
     public void tick(CallbackInfo ci) {
         final PlayerEntity entity = (PlayerEntity) (Object) this;
-        if (entity.world.isClient) {
+        if (entity.getWorld().isClient) {
             final AbstractClientPlayerEntity player = (AbstractClientPlayerEntity) entity;
             if (!player.isAlive()) {
                 ClientSetup.HELD_TOOLS.remove(player);
