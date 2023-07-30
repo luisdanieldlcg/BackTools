@@ -15,9 +15,10 @@ import java.util.Set;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    public static final HashMap<Class<?>, Integer> TOOL_ORIENTATIONS = new HashMap<>();
-    public static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
-    public static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
+    private static final HashMap<Class<?>, Integer> TOOL_ORIENTATIONS = new HashMap<>();
+    private static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
+    private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
+    private static boolean HELICOPTER_MODE = false;
 
     public static int getToolOrientation(@NotNull Item item) {
         return getToolOrientation(item.getClass());
@@ -57,6 +58,9 @@ public class ConfigHandler {
             ClientSetup.config.disabledTools.forEach(disabledTool -> DISABLED_TOOLS.add(new Identifier(disabledTool)));
         }
         ConfigHandler.parseOrientation();
+
+        // load easter egg setting
+        HELICOPTER_MODE = ClientSetup.config.helicopterMode;
     }
 
     private static void parseOrientation() {
@@ -98,5 +102,9 @@ public class ConfigHandler {
                 BackTools.LOGGER.error("[CONFIG_FILE]: Could not find class to add orientation: {}", split[0]);
             }
         }
+    }
+
+    public static boolean isHelicopterModeOn() {
+        return HELICOPTER_MODE;
     }
 }
