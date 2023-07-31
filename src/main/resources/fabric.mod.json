@@ -12,7 +12,7 @@
     "sources": "https://github.com/DanikingRD/BackTools"
   },
   "license": "GNU Lesser General Public License v3.0",
-  "icon": "assets/modid/icon.png",
+  "icon": "assets/backtools/icon.png",
   "environment": "client",
   "entrypoints": {
     "main": [
