@@ -2,9 +2,12 @@ package com.daniking.backtools;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.MappingResolver;
 import net.minecraft.item.*;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,16 +15,15 @@ import java.util.Set;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-
     public static final HashMap<Class<?>, Integer> TOOL_ORIENTATIONS = new HashMap<>();
     public static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
     public static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
 
-    public static int getToolOrientation(Item item) {
+    public static int getToolOrientation(@NotNull Item item) {
         return getToolOrientation(item.getClass());
     }
 
-    public static int getToolOrientation(Class<?> object) {
+    public static int getToolOrientation(@NotNull Class<?> object) {
         if (object.equals(Item.class)) {
             return 0;
         }
@@ -59,6 +61,8 @@ public class ConfigHandler {
 
     private static void parseOrientation() {
         TOOL_ORIENTATIONS.clear();
+        MappingResolver resolver = FabricLoader.getInstance().getMappingResolver();
+
         for (String configText : ClientSetup.config.toolOrientation) {
             final String[] split = new String[2];
             final int i = configText.indexOf(':');
@@ -68,19 +72,31 @@ public class ConfigHandler {
                 split[0] = configText.substring(0, i);//chunk of the text, contains the file class.
                 split[1] = configText.substring(i + 1);//orientation
             }
-            try {
-                final Class<?> path = Class.forName(split[0]);
-                if (Item.class.isAssignableFrom(path)) {
-                    TOOL_ORIENTATIONS.put(path, Integer.parseInt(split[1]));
-                } else {
-                    BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool class file: {}", split[0]);
+
+            Class<?> path = null;
+            for (String namespace : resolver.getNamespaces()) {
+                try {
+                    path = Class.forName(resolver.unmapClassName(namespace, split[0]));
+
+                    // if no error was thrown, we were successful!
+                    break;
+                } catch (ClassNotFoundException ignored) {
                 }
-            } catch (ClassNotFoundException e) {
+            }
+
+            if (path != null) {
+                try {
+                    if (Item.class.isAssignableFrom(path)) {
+                        TOOL_ORIENTATIONS.put(path, Integer.parseInt(split[1]));
+                    } else {
+                        BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool class file: {}", split[0]);
+                    }
+                } catch (NumberFormatException e) {
+                    BackTools.LOGGER.error("[CONFIG_FILE]: Could not parse text: {}", configText);
+                }
+            } else {
                 BackTools.LOGGER.error("[CONFIG_FILE]: Could not find class to add orientation: {}", split[0]);
-            } catch (NumberFormatException e) {
-                BackTools.LOGGER.error("[CONFIG_FILE]: Could not parse text: {}", configText);
             }
         }
     }
-
 }
