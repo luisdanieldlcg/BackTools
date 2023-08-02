@@ -11,7 +11,6 @@ import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.render.model.json.ModelTransformation;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
@@ -45,7 +44,7 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
             this.setRenders(ctx.previousMain, ctx.previousOff, player.getMainArm());
             matrixStack.push();
             this.getContextModel().body.rotate(matrixStack);
-            boolean bl = player.getPose().equals(EntityPose.SWIMMING) || player.isFallFlying();
+            boolean bl = ConfigHandler.isHelicopterModeOn() && (player.getPose().equals(EntityPose.SWIMMING) || player.isFallFlying());
             this.renderItem(!player.getEquippedStack(EquipmentSlot.CHEST).isEmpty() ? 1.0F : player.isPartVisible(PlayerModelPart.JACKET) ? 0.5F : 0F, matrixStack, vertexConsumerProvider, i, bl ? player.age : 0, h);
             matrixStack.pop();
         }

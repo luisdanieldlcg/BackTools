@@ -5,6 +5,7 @@ import me.shedaniel.autoconfig.annotation.Config;
 import me.shedaniel.cloth.clothconfig.shadowed.blue.endless.jankson.Comment;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,4 +21,6 @@ public class BackToolsConfig implements ConfigData {
     public List<String> disabledTools = new ArrayList<>();
     @Comment(value = "Tool orientation, by class file and degrees. Separate with \":\" . See defaults for examples.")
     public List<String> toolOrientation = Arrays.asList("net.minecraft.item.ToolItem" + ":0", "net.minecraft.item.HoeItem" + ":0", "net.minecraft.item.FishingRodItem" + ":0", "net.minecraft.item.TridentItem" + ":0", "net.minecraft.item.RangedWeaponItem" + ":90");
+    @Comment(value = "Get in swimming position and your tools go \"Weeee\"")
+    public boolean helicopterMode = false;
 }
