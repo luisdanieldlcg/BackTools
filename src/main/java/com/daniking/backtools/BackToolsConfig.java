@@ -15,6 +15,8 @@ import java.util.List;
 public class BackToolsConfig implements ConfigData {
     @Comment(value = "\nThese options affect only the client that loads the mod.\nIt is not possible to override the environment of the mod.")
     public final String environment = EnvType.CLIENT.name();
+    @Comment(value = "What items should render on your belt.")
+    public List<String> beltTools = new ArrayList<>();
     @Comment(value = "Enabled tools, by their resource name. Eg: minecraft:diamond_hoe. Putting any entry in here converts BackTools to a whitelist-only mod. Disabled Tools will be ignored.")
     public List<String> enabledTools = new ArrayList<>();
     @Comment(value = "Disabled tools, by their resource name. Eg: minecraft:diamond_hoe")
