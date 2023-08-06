@@ -50,13 +50,9 @@ public class ConfigHandler {
     }
 
     public static  boolean isBeltTool(final Item item) {
-        final Identifier registeryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
+        var itemId = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
         ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(new Identifier(beltTool)));
-
-        if (BELT_TOOLS.contains(registeryName)) {
-            return true;
-        }
-        return false;
+        return BELT_TOOLS.contains(itemId);
     }
 
     public static void init() {

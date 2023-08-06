@@ -5,7 +5,6 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
 
 public class HeldItemContext {
-
     public ItemEntity droppedEntity = null;
     public ItemStack previousMain = ItemStack.EMPTY;
     public ItemStack previousOff = ItemStack.EMPTY;
