@@ -19,6 +19,7 @@ public class ConfigHandler {
     private static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
     private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
     private static boolean HELICOPTER_MODE = false;
+    public static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
 
     public static int getToolOrientation(@NotNull Item item) {
         return getToolOrientation(item.getClass());
@@ -46,6 +47,16 @@ public class ConfigHandler {
         }
         //else allow default items
         return item instanceof MiningToolItem || item instanceof SwordItem || item instanceof ShieldItem || item instanceof TridentItem || item instanceof BowItem || item instanceof ShearsItem || item instanceof CrossbowItem || item instanceof FishingRodItem;
+    }
+
+    public static  boolean isBeltTool(final Item item) {
+        final Identifier registeryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
+        ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(new Identifier(beltTool)));
+
+        if (BELT_TOOLS.contains(registeryName)) {
+            return true;
+        }
+        return false;
     }
 
     public static void init() {
