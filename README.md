@@ -11,7 +11,7 @@ You can change any orientation or disable any tool in the config file.
 
 ## How to config
 
-- The config file is located in `config/backtools.json5`, and looks like this:
+The config file is located in `config/backtools.json5`, and looks like this:
 
 ```json5
 {
