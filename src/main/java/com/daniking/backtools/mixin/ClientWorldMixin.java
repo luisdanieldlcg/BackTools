@@ -27,16 +27,15 @@ public abstract class ClientWorldMixin {
         ClientSetup.HELD_TOOLS.clear();
     }
 
-    @Inject(at = @At("HEAD"), method = "addEntityPrivate")
-    private void onEntityJoinWorld(int id, Entity entity, CallbackInfo ci) {
-        if (entity.getClass().equals(ItemEntity.class)) {
+    @Inject(at = @At("HEAD"), method = "addEntity")
+    private void onEntityJoinWorld(Entity entity, CallbackInfo ci) {
+        if (entity instanceof ItemEntity itemEntity) {
             if (entity.getWorld().isClient) {
-                final ItemEntity item = (ItemEntity) entity;
                 final List<PlayerEntity> entities = entity.getWorld().getEntitiesByType(EntityType.PLAYER, entity.getBoundingBox().expand(1.0D, 1.0D, 1.0D), k -> true);
                 entities.forEach(player -> {
                     if (player instanceof AbstractClientPlayerEntity) {
                         ClientSetup.HELD_TOOLS.computeIfPresent((AbstractClientPlayerEntity) player, (k, v) -> {
-                            v.droppedEntity = item;
+                            v.droppedEntity = itemEntity;
                             return v;
                         });
                     }
