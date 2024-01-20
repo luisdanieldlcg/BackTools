@@ -36,7 +36,7 @@ public class ConfigHandler {
     }
 
     public static boolean isItemEnabled(final Item item) {
-        final Identifier registryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
+        final Identifier registryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), Registries.ITEM.getId(item).getPath());
         if (!ConfigHandler.ENABLED_TOOLS.isEmpty()) {//whitelist only
             return ConfigHandler.ENABLED_TOOLS.contains(registryName);
         }
