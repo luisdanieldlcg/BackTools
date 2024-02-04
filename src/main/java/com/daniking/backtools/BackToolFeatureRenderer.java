@@ -21,7 +21,7 @@ import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
 
 @Environment(EnvType.CLIENT)
-public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M extends PlayerEntityModel<T>> extends HeldItemFeatureRenderer<T, M> {
+public class BackToolFeatureRenderer<T extends AbstractClientPlayerEntity, M extends PlayerEntityModel<T>> extends HeldItemFeatureRenderer<T, M> {
 
     public ItemStack mainStack = ItemStack.EMPTY;
     public ItemStack offStack = ItemStack.EMPTY;
@@ -45,37 +45,38 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
             matrixStack.push();
             this.getContextModel().body.rotate(matrixStack);
             boolean bl = ConfigHandler.isHelicopterModeOn() && (player.getPose().equals(EntityPose.SWIMMING) || player.isFallFlying());
-            this.renderItem(!player.getEquippedStack(EquipmentSlot.CHEST).isEmpty() ? 1.0F : player.isPartVisible(PlayerModelPart.JACKET) ? 0.5F : 0F, matrixStack, vertexConsumerProvider, i, bl ? player.age : 0, h);
+            this.renderItem(!player.getEquippedStack(EquipmentSlot.CHEST).isEmpty() ? 1.0F : player.isPartVisible(PlayerModelPart.JACKET) ? 0.5F : 0F,
+                    matrixStack, vertexConsumerProvider, i, bl ? player.age : 0, h);
             matrixStack.pop();
         }
     }
 
-    private void renderItem(float offset, MatrixStack matrices, VertexConsumerProvider provider, int light,  final int ticks, final float partialTicks) {
-
-        matrices.translate(0F, 4F/16F, 1.91F/16F + (offset / 16F));
+    private void renderItem(float offset, MatrixStack matrices, VertexConsumerProvider provider, int light, final int ticks, final float partialTicks) {
+        matrices.translate(0F, 4F / 16F, 1.91F / 16F + (offset / 16F));
         matrices.translate(0F, 0F, 0.025F);
 
         if (!this.mainStack.isEmpty()) {
             if (this.mainArm == Arm.RIGHT) {
                 matrices.scale(-1F, 1F, -1F);
             }
-            boolean bl = this.mainStack.getItem() instanceof ShieldItem;
-            if (bl) {
+            if (this.mainStack.getItem() instanceof ShieldItem) {
                 float scale = 1.5F;
                 matrices.scale(scale, scale, scale);
                 if (this.mainArm == Arm.LEFT) {
                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-25F));
-                    matrices.translate(-2.5F/16F, 2F/16F, 1.25F/16F);
+                    matrices.translate(-2.5F / 16F, 2F / 16F, 1.25F / 16F);
                 } else {
                     matrices.translate(-1F / 16F, 0.25F / 16F, 1.0F / 16F);
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
+            } else {
+                ToolConfig config = ConfigHandler.getToolOrientation(this.mainStack);
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.getX()));
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(config.getY()));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(config.getZ()));
             }
-            if (!bl) {
-                final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
-            }
+
             if (ConfigHandler.isBeltTool(this.mainStack.getItem())) {
                 float swordScale = 0.8F;
                 matrices.scale(swordScale, swordScale, swordScale);
@@ -87,7 +88,13 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(270F));
                     matrices.translate(0.19F, 0.6F, 0.33F);
                 }
+                ToolConfig config = ConfigHandler.getToolOffset(this.mainStack);
+                matrices.translate(config.getX(), config.getY(), config.getZ());
+            } else {
+                ToolConfig config = ConfigHandler.getToolOffset(this.mainStack);
+                matrices.translate(config.getX(), config.getY(), -config.getZ());
             }
+
             if (ticks > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((ticks + partialTicks) * 40F));
             }
@@ -97,23 +104,24 @@ public class BackToolFeatureRenderer <T extends AbstractClientPlayerEntity, M ex
             if (this.mainArm == Arm.LEFT) {
                 matrices.scale(-1F, 1F, -1F);
             }
-            boolean bl = this.offStack.getItem() instanceof ShieldItem;
-            if (bl) {
+            if (this.offStack.getItem() instanceof ShieldItem) {
                 float scale = 1.5F;
                 matrices.scale(scale, scale, scale);
                 if (this.mainArm == Arm.RIGHT) {
                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
-                    matrices.translate(-2.5F/16F, 2F/16F, 1.25F/16F);
+                    matrices.translate(-2.5F / 16F, 2F / 16F, 1.25F / 16F);
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-25F));
                 } else {
                     matrices.translate(-1F / 16F, 0.25F / 16F, 1.0F / 16F);
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
+            } else {
+                ToolConfig config = ConfigHandler.getToolOrientation(this.mainStack);
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.getX()));
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(config.getY()));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(config.getZ()));
             }
-            if (!bl) {
-                final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
-            }
+
             if (ticks > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((ticks + partialTicks) * 40F));
             }
