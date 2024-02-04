@@ -36,7 +36,7 @@ public class ConfigHandler {
     }
 
     public static boolean isItemEnabled(final Item item) {
-        final Identifier registryName = new Identifier(Registries.ITEM.getId(item).getNamespace(), Registries.ITEM.getId(item).getPath());
+        final Identifier registryName = Registries.ITEM.getId(item);
         if (!ConfigHandler.ENABLED_TOOLS.isEmpty()) {//whitelist only
             return ConfigHandler.ENABLED_TOOLS.contains(registryName);
         }
@@ -50,7 +50,7 @@ public class ConfigHandler {
     }
 
     public static  boolean isBeltTool(final Item item) {
-        var itemId = new Identifier(Registries.ITEM.getId(item).getNamespace(), item.toString());
+        var itemId = Registries.ITEM.getId(item);
         ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(new Identifier(beltTool)));
         return BELT_TOOLS.contains(itemId);
     }
