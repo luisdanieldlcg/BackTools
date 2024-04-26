@@ -71,6 +71,9 @@ public class HeldItemContext {
     }
 
     public static boolean areStacksEqual(final ItemStack a, final ItemStack b) {
-        return !a.isEmpty() && !b.isEmpty() && (!a.hasNbt() || b.hasNbt()) && (a.hasNbt() || !b.hasNbt()) && a.getItem() == b.getItem();
+        return !a.isEmpty() && !b.isEmpty() &&
+                (a.getComponents().isEmpty() || !b.getComponents().isEmpty()) &&
+                (!a.getComponents().isEmpty() || b.getComponents().isEmpty()) &&
+                a.getItem() == b.getItem();
     }
 }
