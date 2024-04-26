@@ -21,10 +21,10 @@ public class BackToolsConfig implements ConfigData {
     public List<String> enabledTools = new ArrayList<>();
     @Comment(value = "Disabled tools, by their resource name. Eg: minecraft:diamond_hoe")
     public List<String> disabledTools = new ArrayList<>();
-    @Comment(value = "Tool orientation, by class file, nbt data and degrees. Separate with \":\" . See defaults for examples.")
+    @Comment(value = "Tool orientation, by class file, component data and degrees. Separate with \":\" . See defaults for examples.")
     public List<String> toolOrientation = Arrays.asList("net.minecraft.item.ToolItem" + ":0", "net.minecraft.item.HoeItem" + ":0", "net.minecraft.item.FishingRodItem" + ":0", "net.minecraft.item.TridentItem" + ":0", "net.minecraft.item.RangedWeaponItem" + ":90");
-    @Comment(value = "Tool translation; by class file, nbt data and degrees. Separate with \":\" . See defaults for examples.")
-    public List<String> toolOffset = Arrays.asList("net.minecraft.item.HoeItem" + "{display:{Name:'\"translation test1\"'}}" + ":0.3:0:0.3", "net.minecraft.item.HoeItem" + "{display:{Name:'\"translation test2\"'}}" + ":0.3");
+    @Comment(value = "Tool translation; by class file, component data and degrees. Separate with \":\" . See defaults for examples.")
+    public List<String> toolOffset = Arrays.asList("net.minecraft.item.HoeItem" + "{\"minecraft:custom_name\": '\"translation test1\"'}" + ":0.3:0:0.3", "net.minecraft.item.HoeItem" + "{\"minecraft:custom_name\": '\"translation test2\"'}" + ":0.3");
     @Comment(value = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;
 }
