@@ -68,7 +68,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
             } else {
-                ToolConfig config = ConfigHandler.getToolOrientation(this.mainStack);
+                TransformationSetting config = ConfigHandler.getToolOrientation(this.mainStack);
                 matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.getX()));
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(config.getY()));
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(config.getZ()));
@@ -85,10 +85,10 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
                     matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(270F));
                     matrices.translate(0.19F, 0.6F, 0.33F);
                 }
-                ToolConfig config = ConfigHandler.getToolOffset(this.mainStack);
+                TransformationSetting config = ConfigHandler.getToolOffset(this.mainStack);
                 matrices.translate(config.getX(), config.getY(), config.getZ());
             } else {
-                ToolConfig config = ConfigHandler.getToolOffset(this.mainStack);
+                TransformationSetting config = ConfigHandler.getToolOffset(this.mainStack);
                 matrices.translate(config.getX(), config.getY(), -config.getZ());
             }
 
@@ -113,7 +113,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
             } else {
-                ToolConfig config = ConfigHandler.getToolOrientation(this.mainStack);
+                TransformationSetting config = ConfigHandler.getToolOrientation(this.mainStack);
                 matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.getX()));
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(config.getY()));
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(config.getZ()));
