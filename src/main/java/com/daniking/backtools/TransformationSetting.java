@@ -6,13 +6,13 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
-public class ToolConfig {
-    private final static ToolConfig EMPTY = new ToolConfig(null, 0, 0, 0);
+public class TransformationSetting {
+    private final static TransformationSetting EMPTY = new TransformationSetting(null, 0, 0, 0);
 
     private final float x, y, z;
     private final @Nullable ComponentMap components;
 
-    public ToolConfig(@Nullable ComponentMap componentsToMatch, float x, float y, float z) {
+    public TransformationSetting(@Nullable ComponentMap componentsToMatch, float x, float y, float z) {
         this.components = componentsToMatch;
 
         this.x = x;
@@ -20,7 +20,7 @@ public class ToolConfig {
         this.z = z;
     }
 
-    public static ToolConfig empty() {
+    public static TransformationSetting empty() {
         return EMPTY;
     }
 

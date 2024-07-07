@@ -24,62 +24,62 @@ public class ConfigHandler {
     private static final Pattern TOOL_CONFIG_PATTERN = Pattern.compile("\\A(?<class>.*?)(?<components>\\{.*})?(?::(?<x>[+-]?(?:\\d*[.])?\\d+):(?<y>[+-]?(?:\\d*[.])?\\d+))?:(?<z>[+-]?(?:\\d*[.])?\\d+)\\z");
 
     private static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
-    private static final HashMap<Class<?>, List<ToolConfig>> TOOL_ORIENTATIONS = new HashMap<>();
-    private static final HashMap<Class<?>, List<ToolConfig>> TOOL_OFFSETS = new HashMap<>();
+    private static final HashMap<Class<?>, List<TransformationSetting>> TOOL_ORIENTATIONS = new HashMap<>();
+    private static final HashMap<Class<?>, List<TransformationSetting>> TOOL_OFFSETS = new HashMap<>();
     private static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
     private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
     private static boolean HELICOPTER_MODE = false;
 
-    public static ToolConfig getToolOrientation(@NotNull ItemStack itemStack) {
+    public static TransformationSetting getToolOrientation(@NotNull ItemStack itemStack) {
         return getToolOrientation(itemStack.getComponents(), itemStack.getItem().getClass());
     }
 
-    public static ToolConfig getToolOrientation(@Nullable ComponentMap components, @NotNull Class<?> object) {
+    public static TransformationSetting getToolOrientation(@Nullable ComponentMap components, @NotNull Class<?> object) {
         if (object.equals(Item.class)) {
-            return ToolConfig.empty();
+            return TransformationSetting.empty();
         }
 
         // add all super classes until we match or hit Item.class
         if (!TOOL_ORIENTATIONS.containsKey(object)) {
-            List<ToolConfig> list = new ArrayList<>();
+            List<TransformationSetting> list = new ArrayList<>();
             list.add(getToolOrientation(components, object.getSuperclass()));
             TOOL_ORIENTATIONS.put(object, list);
         }
 
-        for (ToolConfig toolConfig : TOOL_ORIENTATIONS.get(object)) {
+        for (TransformationSetting toolConfig : TOOL_ORIENTATIONS.get(object)) {
             if (toolConfig.doComponentsMatch(components)) {
                 return toolConfig;
             }
         }
 
         // no match
-        return ToolConfig.empty();
+        return TransformationSetting.empty();
     }
 
-    public static ToolConfig getToolOffset(@NotNull ItemStack itemStack) {
+    public static TransformationSetting getToolOffset(@NotNull ItemStack itemStack) {
         return getToolOffset(itemStack.getComponents(), itemStack.getItem().getClass());
     }
 
-    public static ToolConfig getToolOffset(@Nullable ComponentMap components, @NotNull Class<?> object) {
+    public static TransformationSetting getToolOffset(@Nullable ComponentMap components, @NotNull Class<?> object) {
         if (object.equals(Item.class)) {
-            return ToolConfig.empty();
+            return TransformationSetting.empty();
         }
 
         // add all super class until we match or hit Item.class
         if (!TOOL_OFFSETS.containsKey(object)) {
-            List<ToolConfig> list = new ArrayList<>();
+            List<TransformationSetting> list = new ArrayList<>();
             list.add(getToolOffset(components, object.getSuperclass()));
             TOOL_OFFSETS.put(object, list);
         }
 
-        for (ToolConfig toolConfig : TOOL_OFFSETS.get(object)) {
+        for (TransformationSetting toolConfig : TOOL_OFFSETS.get(object)) {
             if (toolConfig.doComponentsMatch(components)) {
                 return toolConfig;
             }
         }
 
         // no match
-        return ToolConfig.empty();
+        return TransformationSetting.empty();
     }
 
     public static boolean isItemEnabled(final Item item) {
@@ -192,7 +192,7 @@ public class ConfigHandler {
 
                 if (matchedClass != null) {
                     TOOL_ORIENTATIONS.computeIfAbsent(matchedClass, k -> new ArrayList<>());
-                    TOOL_ORIENTATIONS.get(matchedClass).add(new ToolConfig(nbtCompound, xOrientation, yOrientation, zOrientation));
+                    TOOL_ORIENTATIONS.get(matchedClass).add(new TransformationSetting(nbtCompound, xOrientation, yOrientation, zOrientation));
                 }
             } else {
                 BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool orientation setting: {}. Ignoring.", configText);
@@ -231,7 +231,7 @@ public class ConfigHandler {
 
                 if (matchedClass != null) {
                     TOOL_OFFSETS.computeIfAbsent(matchedClass, k -> new ArrayList<>());
-                    TOOL_OFFSETS.get(matchedClass).add(new ToolConfig(components, xOffset, yOffset, zOffset));
+                    TOOL_OFFSETS.get(matchedClass).add(new TransformationSetting(components, xOffset, yOffset, zOffset));
                 }
             } else {
                 BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool offset setting: {}. Ignoring.", configText);
