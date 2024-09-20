@@ -51,18 +51,18 @@ public class ConfigHandler {
 
     public static  boolean isBeltTool(final Item item) {
         var itemId = Registries.ITEM.getId(item);
-        ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(new Identifier(beltTool)));
+        ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(Identifier.of(beltTool)));
         return BELT_TOOLS.contains(itemId);
     }
 
     public static void init() {
         //whitelist only mods
         ENABLED_TOOLS.clear();
-        ClientSetup.config.enabledTools.forEach(enabledTool -> ENABLED_TOOLS.add(new Identifier(enabledTool)));
+        ClientSetup.config.enabledTools.forEach(enabledTool -> ENABLED_TOOLS.add(Identifier.of(enabledTool)));
         //if nothing in whitelist, check our blacklist
         if (ENABLED_TOOLS.isEmpty()) {
             DISABLED_TOOLS.clear();
-            ClientSetup.config.disabledTools.forEach(disabledTool -> DISABLED_TOOLS.add(new Identifier(disabledTool)));
+            ClientSetup.config.disabledTools.forEach(disabledTool -> DISABLED_TOOLS.add(Identifier.of(disabledTool)));
         }
         ConfigHandler.parseOrientation();
 
