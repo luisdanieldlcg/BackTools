@@ -1,7 +1,6 @@
 package com.daniking.backtools;
 
 import net.minecraft.component.ComponentMap;
-import net.minecraft.component.DataComponentType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -25,21 +24,7 @@ public class TransformationSetting {
     }
 
     public boolean doComponentsMatch(@Nullable ComponentMap toCheck) {
-        if (components == null) {
-            return true;
-        }
-        if (toCheck == null) {
-            return false;
-        }
-
-        for (DataComponentType<?> key : components.getTypes()) {
-            if (!Objects.equals(components.get(key), toCheck.get(key))) {
-                return false;
-            }
-        }
-
-        return true;
-
+        return Objects.equals(components, toCheck);
     }
 
     public float getX() {
