@@ -2,38 +2,35 @@ package com.daniking.backtools;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.MappingResolver;
 import net.minecraft.item.*;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.entry.RegistryEntryList;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    private static final HashMap<Class<?>, Float> TOOL_ORIENTATIONS = new HashMap<>();
-    private static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
+    private static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
+    private static final @NotNull Pattern TOOL_ORIENTATION_PATTERN = Pattern.compile("^(?<isTag>#)?(?:(?<namespace>minecraft):)?(?<itemOrTag>.+?):(?<orientation>.+?)$");
+    private static final Map<Item, Float> TOOL_ORIENTATIONS = new LinkedHashMap<>();
+    private static final Set<Identifier> ENABLED_TOOLS = new HashSet<>();
     private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
     private static boolean HELICOPTER_MODE = false;
     private static boolean RENDER_WITH_CAPES = true;
-    public static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
 
     public static float getToolOrientation(@NotNull Item item) {
-        return getToolOrientation(item.getClass());
-    }
+        Float orientation = TOOL_ORIENTATIONS.get(item);
 
-    public static float getToolOrientation(@NotNull Class<?> object) {
-        if (object.equals(Item.class)) {
-            return 0;
-        }
-        if (!TOOL_ORIENTATIONS.containsKey(object)) {
-            TOOL_ORIENTATIONS.put(object, getToolOrientation(object.getSuperclass()));
-        }
-        return TOOL_ORIENTATIONS.get(object);
+        return Objects.requireNonNullElse(orientation, 0.0F);
     }
 
     public static boolean isItemEnabled(final Item item) {
@@ -84,41 +81,51 @@ public class ConfigHandler {
 
     private static void parseOrientation() {
         TOOL_ORIENTATIONS.clear();
-        MappingResolver resolver = FabricLoader.getInstance().getMappingResolver();
 
         for (String configText : ClientSetup.config.toolOrientation) {
-            final String[] split = new String[2];
-            final int i = configText.indexOf(':');
-            if (i == -1) {
-                BackTools.LOGGER.error("[CONFIG_FILE]: Tool orientation class file and degrees must be separated with \":\"!");
-            } else {
-                split[0] = configText.substring(0, i);//chunk of the text, contains the file class.
-                split[1] = configText.substring(i + 1);//orientation
-            }
+            Matcher matcher = TOOL_ORIENTATION_PATTERN.matcher(configText);
 
-            Class<?> path = null;
-            for (String namespace : resolver.getNamespaces()) {
+            if (matcher.matches()) {
+                float orientation;
                 try {
-                    path = Class.forName(resolver.unmapClassName(namespace, split[0]));
-
-                    // if no error was thrown, we were successful!
-                    break;
-                } catch (ClassNotFoundException ignored) {
+                    orientation = Float.parseFloat(matcher.group("orientation"));
+                } catch (NumberFormatException exception) {
+                    BackTools.LOGGER.error("[CONFIG_FILE]: Could not load config option, because string \"{}\" was not an integer!", matcher.group("orientation"));
+                    continue;
                 }
-            }
 
-            if (path != null) {
-                try {
-                    if (Item.class.isAssignableFrom(path)) {
-                        TOOL_ORIENTATIONS.put(path, Float.parseFloat(split[1]));
+                final @Nullable String nameSpace = matcher.group("namespace");
+                if (matcher.group("isTag") == null) { // not a tag
+                    final @NotNull String itemID = matcher.group("itemOrTag"); // item id can't be null or the pattern didn't match
+
+                    final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), itemID);
+                    final @NotNull Optional<RegistryEntry.Reference<Item>> optionalRegistryEntry = Registries.ITEM.getOptional(RegistryKey.of(
+                        Registries.ITEM.getKey(), identifier
+                    ));
+
+                    if (optionalRegistryEntry.isPresent()) {
+                        TOOL_ORIENTATIONS.put(optionalRegistryEntry.get().value(), orientation);
                     } else {
-                        BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool class file: {}", split[0]);
+                        BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item with identifier of {}", identifier);
                     }
-                } catch (NumberFormatException e) {
-                    BackTools.LOGGER.error("[CONFIG_FILE]: Could not parse text: {}", configText);
+                } else { // is a tag
+                    final @NotNull String tagID = matcher.group("itemOrTag"); // tag id can't be null or the pattern didn't match
+
+                    final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), tagID);
+                    TagKey<Item> tag = TagKey.of(RegistryKeys.ITEM, identifier);
+
+                    Optional<RegistryEntryList.Named<Item>> optionalRegistryEntries = Registries.ITEM.getOptional(tag);
+
+                    if (optionalRegistryEntries.isPresent()) {
+                        for (RegistryEntry<Item> registryEntry : optionalRegistryEntries.get()){
+                            TOOL_ORIENTATIONS.put(registryEntry.value(), orientation);
+                        }
+                    } else {
+                        BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item tag with identifier of {}", identifier);
+                    }
                 }
             } else {
-                BackTools.LOGGER.error("[CONFIG_FILE]: Could not find class to add orientation: {}", split[0]);
+                BackTools.LOGGER.error("[CONFIG_FILE]: Could not read tool configuration \"{}\"!", configText);
             }
         }
     }
@@ -126,5 +133,6 @@ public class ConfigHandler {
     public static boolean isHelicopterModeOn() {
         return HELICOPTER_MODE;
     }
+
     public static boolean isRenderWithCapesTrue() { return RENDER_WITH_CAPES; }
 }
