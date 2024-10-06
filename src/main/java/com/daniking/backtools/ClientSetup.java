@@ -5,6 +5,7 @@ import me.shedaniel.autoconfig.serializer.JanksonConfigSerializer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 
 import java.util.Map;
@@ -20,6 +21,8 @@ public class ClientSetup implements ClientModInitializer {
     public void onInitializeClient() {
         AutoConfig.register(BackToolsConfig.class, JanksonConfigSerializer::new);
         config = AutoConfig.getConfigHolder(BackToolsConfig.class).getConfig();
-        ConfigHandler.init();
+
+        // since we depend on item tags, our config can't load until the tags are loaded first. (creating / joining worlds)
+        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> ConfigHandler.init());
     }
 }
