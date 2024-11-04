@@ -27,4 +27,6 @@ public class BackToolsConfig implements ConfigData {
     public List<String> toolOffset = Arrays.asList("net.minecraft.item.HoeItem" + "{\"minecraft:custom_name\": '\"translation test1\"'}" + ":0.3:0:0.3", "net.minecraft.item.HoeItem" + "{\"minecraft:custom_name\": '\"translation test2\"'}" + ":0.3");
     @Comment(value = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;
+    @Comment(value = "If true, tools render with capes")
+    public boolean renderWithCapes = false;
 }
