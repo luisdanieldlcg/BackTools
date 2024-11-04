@@ -25,4 +25,6 @@ public class BackToolsConfig implements ConfigData {
     public List<String> toolOrientation = Arrays.asList("net.minecraft.item.ToolItem" + ":0", "net.minecraft.item.HoeItem" + ":0", "net.minecraft.item.FishingRodItem" + ":0", "net.minecraft.item.TridentItem" + ":0", "net.minecraft.item.RangedWeaponItem" + ":90");
     @Comment(value = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;
+    @Comment(value = "If true, tools render with capes")
+    public boolean renderWithCapes = false;
 }
