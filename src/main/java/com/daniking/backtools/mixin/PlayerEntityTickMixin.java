@@ -18,9 +18,9 @@ public abstract class PlayerEntityTickMixin {
         if (entity.getWorld().isClient) {
             final AbstractClientPlayerEntity player = (AbstractClientPlayerEntity) entity;
             if (!player.isAlive()) {
-                ClientSetup.HELD_TOOLS.remove(player);
+                ClientSetup.HELD_TOOLS.remove(player.getNameForScoreboard());
             } else {
-                final HeldItemContext ctx = ClientSetup.HELD_TOOLS.computeIfAbsent(player, v -> new HeldItemContext());
+                final HeldItemContext ctx = ClientSetup.HELD_TOOLS.computeIfAbsent(player.getNameForScoreboard(), v -> new HeldItemContext());
                 ctx.tick(player.getMainHandStack().copy(), player.getOffHandStack().copy());
             }
         }
