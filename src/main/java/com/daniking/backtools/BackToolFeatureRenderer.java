@@ -23,8 +23,8 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
     public ItemStack offStack = ItemStack.EMPTY;
     public Arm mainArm = Arm.RIGHT;
 
-    public BackToolFeatureRenderer(FeatureRendererContext<PlayerEntityRenderState, M> context, ItemRenderer heldItemRenderer) {
-        super(context, heldItemRenderer);
+    public BackToolFeatureRenderer(FeatureRendererContext<PlayerEntityRenderState, M> context) {
+        super(context);
     }
 
     @Override
