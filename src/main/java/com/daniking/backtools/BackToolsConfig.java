@@ -23,7 +23,6 @@ public class BackToolsConfig implements ConfigData {
     public List<String> disabledTools = new ArrayList<>();
     @Comment(value = "Tool orientation, by class file and degrees. Separate with \":\" . See defaults for examples.")
     public List<String> toolOrientation = Arrays.asList(
-        "net.minecraft.item.MiningToolItem" + ":0",
         "net.minecraft.item.HoeItem" + ":0",
         "net.minecraft.item.FishingRodItem" + ":0",
         "net.minecraft.item.TridentItem" + ":0",

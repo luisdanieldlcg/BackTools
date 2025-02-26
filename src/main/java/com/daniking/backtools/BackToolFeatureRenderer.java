@@ -9,10 +9,9 @@ import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.feature.PlayerHeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.item.ShieldItem;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
@@ -87,7 +86,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             if (age > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
             }
-            MinecraftClient.getInstance().getItemRenderer().renderItem(this.mainStack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(this.mainStack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
         }
         if (!this.offStack.isEmpty()) {
             if (this.mainArm == Arm.LEFT) {
@@ -113,7 +112,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             if (age > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
             }
-            MinecraftClient.getInstance().getItemRenderer().renderItem(this.offStack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(this.offStack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
         }
     }
 

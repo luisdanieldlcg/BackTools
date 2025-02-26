@@ -6,6 +6,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.MappingResolver;
 import net.minecraft.item.*;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 
@@ -47,16 +49,21 @@ public class ConfigHandler {
             return false;
         }
         //else allow default items
-        return item instanceof SwordItem ||
-                item instanceof TridentItem ||
-                item instanceof BowItem ||
-                item instanceof CrossbowItem ||
-                item instanceof MaceItem ||
-                item instanceof ShieldItem ||
-                item instanceof MiningToolItem ||
-                item instanceof ShearsItem ||
-                item instanceof FishingRodItem;
+        final RegistryEntry<Item> registryEntry = Registries.ITEM.getEntry(item);
 
+        return registryEntry.isIn(ItemTags.SWORDS) ||
+            registryEntry.isIn(ItemTags.AXES) ||
+            registryEntry.isIn(ItemTags.HOES) ||
+            registryEntry.isIn(ItemTags.PICKAXES) ||
+            registryEntry.isIn(ItemTags.SHOVELS) ||
+            registryEntry.isIn(ItemTags.STRIDER_TEMPT_ITEMS) ||
+            item instanceof MaceItem ||
+            item instanceof ShieldItem ||
+            item instanceof TridentItem ||
+            item instanceof BowItem ||
+            item instanceof ShearsItem ||
+            item instanceof CrossbowItem ||
+            item instanceof FishingRodItem;
     }
 
     public static  boolean isBeltTool(final Item item) {
