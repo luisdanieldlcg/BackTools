@@ -69,7 +69,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 }
             }
             if (!bl) {
-                final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
+                final float i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
             if (ConfigHandler.isBeltTool(this.mainStack.getItem())) {
@@ -107,7 +107,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 }
             }
             if (!isShield) {
-                final int i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
+                final float i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
             if (age > 0) {

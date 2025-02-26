@@ -15,18 +15,18 @@ import java.util.Set;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    private static final HashMap<Class<?>, Integer> TOOL_ORIENTATIONS = new HashMap<>();
+    private static final HashMap<Class<?>, Float> TOOL_ORIENTATIONS = new HashMap<>();
     private static final HashSet<Identifier> ENABLED_TOOLS = new HashSet<>();
     private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
     private static boolean HELICOPTER_MODE = false;
     private static boolean RENDER_WITH_CAPES = true;
     public static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
 
-    public static int getToolOrientation(@NotNull Item item) {
+    public static float getToolOrientation(@NotNull Item item) {
         return getToolOrientation(item.getClass());
     }
 
-    public static int getToolOrientation(@NotNull Class<?> object) {
+    public static float getToolOrientation(@NotNull Class<?> object) {
         if (object.equals(Item.class)) {
             return 0;
         }
@@ -47,7 +47,16 @@ public class ConfigHandler {
             return false;
         }
         //else allow default items
-        return item instanceof MiningToolItem || item instanceof SwordItem || item instanceof ShieldItem || item instanceof TridentItem || item instanceof BowItem || item instanceof ShearsItem || item instanceof CrossbowItem || item instanceof FishingRodItem;
+        return item instanceof SwordItem ||
+                item instanceof TridentItem ||
+                item instanceof BowItem ||
+                item instanceof CrossbowItem ||
+                item instanceof MaceItem ||
+                item instanceof ShieldItem ||
+                item instanceof MiningToolItem ||
+                item instanceof ShearsItem ||
+                item instanceof FishingRodItem;
+
     }
 
     public static  boolean isBeltTool(final Item item) {
@@ -101,7 +110,7 @@ public class ConfigHandler {
             if (path != null) {
                 try {
                     if (Item.class.isAssignableFrom(path)) {
-                        TOOL_ORIENTATIONS.put(path, Integer.parseInt(split[1]));
+                        TOOL_ORIENTATIONS.put(path, Float.parseFloat(split[1]));
                     } else {
                         BackTools.LOGGER.error("[CONFIG_FILE]: Invalid Tool class file: {}", split[0]);
                     }

@@ -22,7 +22,13 @@ public class BackToolsConfig implements ConfigData {
     @Comment(value = "Disabled tools, by their resource name. Eg: minecraft:diamond_hoe")
     public List<String> disabledTools = new ArrayList<>();
     @Comment(value = "Tool orientation, by class file and degrees. Separate with \":\" . See defaults for examples.")
-    public List<String> toolOrientation = Arrays.asList("net.minecraft.item.ToolItem" + ":0", "net.minecraft.item.HoeItem" + ":0", "net.minecraft.item.FishingRodItem" + ":0", "net.minecraft.item.TridentItem" + ":0", "net.minecraft.item.RangedWeaponItem" + ":90");
+    public List<String> toolOrientation = Arrays.asList(
+        "net.minecraft.item.MiningToolItem" + ":0",
+        "net.minecraft.item.HoeItem" + ":0",
+        "net.minecraft.item.FishingRodItem" + ":0",
+        "net.minecraft.item.TridentItem" + ":0",
+        "net.minecraft.item.MaceItem" + ":-22.5",
+        "net.minecraft.item.RangedWeaponItem" + ":90");
     @Comment(value = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;
     @Comment(value = "If true, tools render with capes")
