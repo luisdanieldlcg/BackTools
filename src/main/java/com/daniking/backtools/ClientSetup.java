@@ -21,6 +21,6 @@ public class ClientSetup implements ClientModInitializer {
         config = AutoConfig.getConfigHolder(BackToolsConfig.class).getConfig();
 
         // since we depend on item tags, our config can't load until the tags are loaded first. (creating / joining worlds)
-        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> ConfigHandler.init());
+        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> ConfigHandler.reload());
     }
 }

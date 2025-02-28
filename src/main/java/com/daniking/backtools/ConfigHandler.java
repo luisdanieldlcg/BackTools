@@ -1,5 +1,6 @@
 package com.daniking.backtools;
 
+import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.item.*;
@@ -16,123 +17,131 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    private static final @NotNull Pattern TOOL_ORIENTATION_PATTERN = Pattern.compile("^(?<isTag>#)?(?:(?<namespace>minecraft):)?(?<itemOrTag>.+?):(?<orientation>.+?)$");
-    private static final Map<Item, Float> TOOL_ORIENTATIONS = new LinkedHashMap<>();
-    private static final Set<Identifier> ENABLED_TOOLS = new HashSet<>();
-    private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
-    private static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
-    private static boolean HELICOPTER_MODE = false;
-    private static boolean RENDER_WITH_CAPES = true;
+    // matches every common float
+    private static final String FLOAT_PATTERN_STR = "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)";
+    // matches every column ":" with optional whitespace around it
+    private static final String WHITESPACED_COLUMN = "\\s*:\\s*";
+    // optional # at start, optional namespace : itemId or tagId
+    private static final String BASE_PATTERN_STR = "(?<isTag>#)?(?:(?<namespace>.+?)" + WHITESPACED_COLUMN + ")?(?<itemOrTag>.+?)";
+    // always starts with a minus "-", make use of the base pattern, may or may not be appended by a column and a number
+    private static final @NotNull Pattern NEGATIVE_PATTERN = Pattern.compile("^-" + BASE_PATTERN_STR + "(?:" + WHITESPACED_COLUMN + FLOAT_PATTERN_STR + ")?$");
+    // always starts with the base pattern, followed by a column and a float
+    private static final @NotNull Pattern ORIENTATION_PATTERN = Pattern.compile("^" + BASE_PATTERN_STR + WHITESPACED_COLUMN + "(?<orientation>" + FLOAT_PATTERN_STR + ")$");
+    private static @NotNull Object2FloatOpenHashMap<@NotNull Item> backConfigurations = new Object2FloatOpenHashMap<>();
+    private static @NotNull Object2FloatOpenHashMap<@NotNull Item> beltConfigurations = new Object2FloatOpenHashMap<>();
+    private static boolean helicopterMode = false;
+    private static boolean renderWithCapes = true;
 
-    public static float getToolOrientation(@NotNull Item item) {
-        Float orientation = TOOL_ORIENTATIONS.get(item);
-
-        return Objects.requireNonNullElse(orientation, 0.0F);
+    public static boolean isItemEnabled(final @NotNull Item item) {
+        return backConfigurations.containsKey(item) || beltConfigurations.containsKey(item);
     }
 
-    public static boolean isItemEnabled(final Item item) {
-        final Identifier registryName = Registries.ITEM.getId(item);
-        if (!ConfigHandler.ENABLED_TOOLS.isEmpty()) {//whitelist only
-            return ConfigHandler.ENABLED_TOOLS.contains(registryName);
-        }
-        //at this point whitelist is empty
-        //let's then check blacklist
-        if (DISABLED_TOOLS.contains(registryName)) {
-            return false;
-        }
-        //else allow default items
-        return item instanceof SwordItem ||
-                item instanceof TridentItem ||
-                item instanceof BowItem ||
-                item instanceof CrossbowItem ||
-                item instanceof MaceItem ||
-                item instanceof ShieldItem ||
-                item instanceof MiningToolItem ||
-                item instanceof ShearsItem ||
-                item instanceof FishingRodItem;
-
+    public static float getBackOrientation(final @NotNull Item item) {
+        return backConfigurations.getFloat(item);
     }
 
-    public static  boolean isBeltTool(final Item item) {
-        var itemId = Registries.ITEM.getId(item);
-        ClientSetup.config.beltTools.forEach(beltTool -> BELT_TOOLS.add(Identifier.of(beltTool)));
-        return BELT_TOOLS.contains(itemId);
+    /// returns the configurated orientation for the belt, or {@link Float#MIN_VALUE} if not found.
+    public static float getBeltOrientation(final @NotNull Item item) {
+        return beltConfigurations.getFloat(item);
     }
 
-    public static void init() {
-        //whitelist only mods
-        ENABLED_TOOLS.clear();
-        ClientSetup.config.enabledTools.forEach(enabledTool -> ENABLED_TOOLS.add(Identifier.of(enabledTool)));
-        //if nothing in whitelist, check our blacklist
-        if (ENABLED_TOOLS.isEmpty()) {
-            DISABLED_TOOLS.clear();
-            ClientSetup.config.disabledTools.forEach(disabledTool -> DISABLED_TOOLS.add(Identifier.of(disabledTool)));
-        }
-        ConfigHandler.parseOrientation();
+    /// returns the configurated orientation for the belt, or {@link Float#MIN_VALUE} if not found.
+    public static boolean isHelicopterModeOn() {
+        return helicopterMode;
+    }
+
+    public static boolean shouldRenderWithCapes() {
+        return renderWithCapes;
+    }
+
+    public static void reload() {
+        // parse configurated Items
+        backConfigurations = parseOrientation(ClientSetup.config.backTools);
+        beltConfigurations = parseOrientation(ClientSetup.config.beltTools);
 
         // load easter egg setting
-        HELICOPTER_MODE = ClientSetup.config.helicopterMode;
+        helicopterMode = ClientSetup.config.helicopterMode;
         //render with capes setting
-        RENDER_WITH_CAPES = ClientSetup.config.renderWithCapes;
+        renderWithCapes = ClientSetup.config.renderWithCapes;
     }
 
-    private static void parseOrientation() {
-        TOOL_ORIENTATIONS.clear();
+    private static @NotNull Object2FloatOpenHashMap<@NotNull Item> parseOrientation(final @NotNull List<@NotNull String> listToParse){
+        final @NotNull Object2FloatOpenHashMap<@NotNull Item> result = new Object2FloatOpenHashMap<>(listToParse.size());
+        result.defaultReturnValue(Float.MIN_VALUE); // we need something to indicate the state "not found", and null would defeat the point of a fastutil map
 
-        for (String configText : ClientSetup.config.toolOrientation) {
-            Matcher matcher = TOOL_ORIENTATION_PATTERN.matcher(configText);
+        for (final @NotNull String configText : listToParse) {
+            final @NotNull Matcher neagtiveMatcher = NEGATIVE_PATTERN.matcher(configText);
 
-            if (matcher.matches()) {
-                float orientation;
-                try {
-                    orientation = Float.parseFloat(matcher.group("orientation"));
-                } catch (NumberFormatException exception) {
-                    BackTools.LOGGER.error("[CONFIG_FILE]: Could not load config option, because string \"{}\" was not an integer!", matcher.group("orientation"));
-                    continue;
-                }
-
-                final @Nullable String nameSpace = matcher.group("namespace");
-                if (matcher.group("isTag") == null) { // not a tag
-                    final @NotNull String itemID = matcher.group("itemOrTag"); // item id can't be null or the pattern didn't match
-
-                    final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), itemID);
-                    final @NotNull Optional<RegistryEntry.Reference<Item>> optionalRegistryEntry = Registries.ITEM.getOptional(RegistryKey.of(
-                        Registries.ITEM.getKey(), identifier
-                    ));
-
-                    if (optionalRegistryEntry.isPresent()) {
-                        TOOL_ORIENTATIONS.put(optionalRegistryEntry.get().value(), orientation);
-                    } else {
-                        BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item with identifier of {}", identifier);
-                    }
-                } else { // is a tag
-                    final @NotNull String tagID = matcher.group("itemOrTag"); // tag id can't be null or the pattern didn't match
-
-                    final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), tagID);
-                    TagKey<Item> tag = TagKey.of(RegistryKeys.ITEM, identifier);
-
-                    Optional<RegistryEntryList.Named<Item>> optionalRegistryEntries = Registries.ITEM.getOptional(tag);
-
-                    if (optionalRegistryEntries.isPresent()) {
-                        for (RegistryEntry<Item> registryEntry : optionalRegistryEntries.get()){
-                            TOOL_ORIENTATIONS.put(registryEntry.value(), orientation);
-                        }
-                    } else {
-                        BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item tag with identifier of {}", identifier);
-                    }
+            if (neagtiveMatcher.matches()) { // if it's starts with a minus remove it from the map
+                for (final @NotNull Item item : fetchItems(neagtiveMatcher)) {
+                    result.removeFloat(item);
                 }
             } else {
-                BackTools.LOGGER.error("[CONFIG_FILE]: Could not read tool configuration \"{}\"!", configText);
+                final @NotNull Matcher positiveMatcher = ORIENTATION_PATTERN.matcher(configText);
+                if (positiveMatcher.matches()) {
+                    float orientation;
+                    try {
+                        orientation = Float.parseFloat(positiveMatcher.group("orientation"));
+                    } catch (NumberFormatException exception) {
+                        BackTools.LOGGER.error("[CONFIG_FILE]: Could not load config option, because string \"{}\" was not a float!", positiveMatcher.group("orientation"));
+                        continue;
+                    }
+
+                    for (final @NotNull Item item : fetchItems(positiveMatcher)) {
+                        result.put(item, orientation);
+                    }
+                } else {
+                    BackTools.LOGGER.error("[CONFIG_FILE]: Could not read tool configuration \"{}\"!", configText);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * @param matcher created matching either the {@link #NEGATIVE_PATTERN} or {@link #ORIENTATION_PATTERN}
+     * @return
+     * - all items in a tag, if the String was a tag,<br>
+     * - a Set of one, if the String was item id<br>
+     * - an empty Set, if invalid
+     */
+    private static @NotNull Set<@NotNull Item> fetchItems (final @NotNull Matcher matcher) {
+        final @Nullable String nameSpace = matcher.group("namespace");
+
+        if (matcher.group("isTag") == null) { // not a tag
+            final @NotNull String itemID = matcher.group("itemOrTag"); // item id can't be null or the pattern didn't match
+
+            final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), itemID);
+            final @NotNull Optional<RegistryEntry.Reference<Item>> optionalRegistryEntry = Registries.ITEM.getOptional(RegistryKey.of(
+                Registries.ITEM.getKey(), identifier
+            ));
+
+            if (optionalRegistryEntry.isPresent()) {
+                return Set.of(optionalRegistryEntry.get().value());
+            } else {
+                BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item with identifier of {}", identifier);
+                return Set.of();
+            }
+        } else { // is a tag
+            final @NotNull String tagID = matcher.group("itemOrTag"); // tag id can't be null or the pattern didn't match
+
+            final @Nullable Identifier identifier = Identifier.of(Objects.requireNonNullElse(nameSpace, Identifier.DEFAULT_NAMESPACE), tagID);
+            TagKey<Item> tag = TagKey.of(RegistryKeys.ITEM, identifier);
+
+            Optional<RegistryEntryList.Named<Item>> optionalRegistryEntries = Registries.ITEM.getOptional(tag);
+
+            if (optionalRegistryEntries.isPresent()) {
+                return optionalRegistryEntries.get().stream().map(RegistryEntry::value).collect(Collectors.toSet());
+            } else {
+                BackTools.LOGGER.error("[CONFIG_FILE]: Could not find any item tag with identifier of {}", identifier);
+
+                return Set.of();
             }
         }
     }
-
-    public static boolean isHelicopterModeOn() {
-        return HELICOPTER_MODE;
-    }
-
-    public static boolean isRenderWithCapesTrue() { return RENDER_WITH_CAPES; }
 }
