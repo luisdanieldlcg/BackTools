@@ -13,6 +13,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.*;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 @Environment(EnvType.CLIENT)
@@ -21,12 +22,14 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
     public ItemStack offStack = ItemStack.EMPTY;
     public Arm mainArm = Arm.RIGHT;
 
-    public BackToolFeatureRenderer(FeatureRendererContext<PlayerEntityRenderState, M> context) {
+    @Contract(pure = true)
+    public BackToolFeatureRenderer(final @NotNull FeatureRendererContext<PlayerEntityRenderState, M> context) {
         super(context);
     }
 
     @Override
-    public void render(MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int light, PlayerEntityRenderState playerRenderState, float limbAngle, float limbDistance) {
+    public void render(final @NotNull MatrixStack matrixStack, final @NotNull VertexConsumerProvider vertexConsumerProvider, final int light,
+                       final @NotNull PlayerEntityRenderState playerRenderState, final float limbAngle, final float limbDistance) {
         if (!(playerRenderState.capeVisible && playerRenderState.skinTextures.capeTexture() != null && !ConfigHandler.shouldRenderWithCapes()) &&
             !playerRenderState.invisible && playerRenderState.sleepingDirection == null && // todo render belt tools when sleeping and regardless of cape
             ClientSetup.HELD_TOOLS.containsKey(playerRenderState.name)) {
@@ -41,8 +44,8 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             final float age = ConfigHandler.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
             final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
 
-            renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light); // Main stack
-            renderItem(this.offStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.LEFT, age, light); // Off stack
+            renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light); // Mainhand stack
+            renderItem(this.offStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.LEFT, age, light); // Offhand stack
         }
     }
 
@@ -121,7 +124,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
         }
     }
 
-    private void setRenders(final ItemStack mainStack, final ItemStack offStack, final Arm side) {
+    private void setRenders(final @NotNull ItemStack mainStack, final @NotNull ItemStack offStack, final @NotNull Arm side) {
         this.mainStack = mainStack;
         this.offStack = offStack;
         this.mainArm = side;
