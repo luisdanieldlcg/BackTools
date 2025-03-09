@@ -39,7 +39,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             }
             this.setRenders(ctx.previousMain, ctx.previousOff, playerRenderState.mainArm);
             matrixStack.push();
-            this.getContextModel().body.rotate(matrixStack);
+            this.getContextModel().body.applyTransform(matrixStack);
             boolean isHelicopterMode = ConfigHandler.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding);
             this.renderItem(!playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F, matrixStack, vertexConsumerProvider, light, isHelicopterMode ? playerRenderState.age : 0);
             matrixStack.pop();
