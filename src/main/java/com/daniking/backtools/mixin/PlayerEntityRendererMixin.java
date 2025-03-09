@@ -25,6 +25,6 @@ public abstract class PlayerEntityRendererMixin <T extends AbstractClientPlayerE
 
     @Inject(method = "<init>", at = @At("TAIL"), locals = LocalCapture.CAPTURE_FAILSOFT)
     private void addRender(EntityRendererFactory.Context ctx, boolean slim, CallbackInfo ci) {
-        this.addFeature(new BackToolFeatureRenderer(this, ctx.getItemRenderer()));
+        this.addFeature(new BackToolFeatureRenderer(this));
     }
 }

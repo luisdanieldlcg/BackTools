@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "backtools",
-  "version": "${version}",
+  "version": "${modVersion}",
   "name": "BackTools",
   "description": "Shows the last used tool on the player's back. Purely aesthetic.",
   "authors": [
@@ -29,7 +29,7 @@
   "depends": {
     "fabricloader": "*",
     "fabric": "*",
-    "minecraft": ">=1.21.3",
+    "minecraft": "=${mcVersion}",
     "cloth-config2": "*"
   }
 }
