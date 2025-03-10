@@ -42,7 +42,8 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             matrixStack.push();
             this.getContextModel().body.rotate(matrixStack);
             boolean isHelicopterMode = ConfigHandler.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding);
-            this.renderItem(!playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F, matrixStack, vertexConsumerProvider, light, isHelicopterMode ? playerRenderState.age : 0);
+            this.renderItem(!playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F,
+                matrixStack, vertexConsumerProvider, light, isHelicopterMode ? playerRenderState.age : 0);
             matrixStack.pop();
         }
     }
@@ -55,8 +56,8 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             if (this.mainArm == Arm.RIGHT) {
                 matrices.scale(-1F, 1F, -1F);
             }
-            boolean bl = this.mainStack.getItem() instanceof ShieldItem;
-            if (bl) {
+
+            if (this.mainStack.getItem() instanceof ShieldItem) {
                 float scale = 1.5F;
                 matrices.scale(scale, scale, scale);
                 if (this.mainArm == Arm.LEFT) {
@@ -67,11 +68,11 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                     matrices.translate(-1F / 16F, 0.25F / 16F, 1.0F / 16F);
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(25F));
                 }
-            }
-            if (!bl) {
+            } else {
                 final float i = ConfigHandler.getToolOrientation(this.mainStack.getItem());
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(i));
             }
+
             if (ConfigHandler.isBeltTool(this.mainStack.getItem())) {
                 float swordScale = 0.8F;
                 matrices.scale(swordScale, swordScale, swordScale);
@@ -84,6 +85,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                     matrices.translate(0.19F, 0.6F, 0.33F);
                 }
             }
+
             if (age > 0) {
                 matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
             }

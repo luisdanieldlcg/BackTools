@@ -19,11 +19,11 @@ import java.util.regex.Pattern;
 
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    private static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
     private static final @NotNull Pattern TOOL_ORIENTATION_PATTERN = Pattern.compile("^(?<isTag>#)?(?:(?<namespace>minecraft):)?(?<itemOrTag>.+?):(?<orientation>.+?)$");
     private static final Map<Item, Float> TOOL_ORIENTATIONS = new LinkedHashMap<>();
     private static final Set<Identifier> ENABLED_TOOLS = new HashSet<>();
     private static final Set<Identifier> DISABLED_TOOLS = new HashSet<>();
+    private static final HashSet<Identifier> BELT_TOOLS = new HashSet<>();
     private static boolean HELICOPTER_MODE = false;
     private static boolean RENDER_WITH_CAPES = true;
 
