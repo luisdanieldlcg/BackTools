@@ -3,6 +3,7 @@ package com.daniking.backtools;
 
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 public class HeldItemContext {
     public ItemEntity droppedEntity = null;
@@ -11,11 +12,14 @@ public class HeldItemContext {
     public ItemStack activeMain = ItemStack.EMPTY;
     public ItemStack activeOff = ItemStack.EMPTY;
 
-    public void tick(ItemStack main, ItemStack off) {
-        if (droppedEntity != null && !droppedEntity.getStack().isEmpty()) {
-            this.reset(droppedEntity.getStack());
-            droppedEntity = null;
-            return;
+    public void tick(final @NotNull ItemStack main, final @NotNull ItemStack off) {
+        if (droppedEntity != null) {
+            final @NotNull ItemStack entityStack = droppedEntity.getStack();
+            if (!entityStack.isEmpty()) {
+                this.reset(entityStack);
+                droppedEntity = null;
+                return;
+            }
         }
 
         //check to see if we should remove the main hand back tool
@@ -31,9 +35,6 @@ public class HeldItemContext {
             previousMain = activeMain;
             activeMain = ItemStack.EMPTY;
         }
-//        this.updateActiveStacks(main, off);
-//        //set back tool if offhand tool was an item, and we don't see that item anymore.
-//        this.updatePreviousStacks(main, off);
 
         if (!activeOff.isEmpty() && !ItemStack.areItemsAndComponentsEqual(main, activeOff) && !ItemStack.areItemsAndComponentsEqual(off, activeOff)) {
             previousOff = activeOff;
@@ -54,7 +55,7 @@ public class HeldItemContext {
         }
     }
 
-    private void reset(ItemStack entityStack) {
+    public void reset(final @NotNull ItemStack entityStack) {
         if (ItemStack.areItemsAndComponentsEqual(entityStack, previousMain)) {
             previousMain = ItemStack.EMPTY;
         }
