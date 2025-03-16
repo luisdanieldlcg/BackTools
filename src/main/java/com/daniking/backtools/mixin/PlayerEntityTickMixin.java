@@ -20,7 +20,8 @@ public abstract class PlayerEntityTickMixin {
             if (!player.isAlive()) {
                 ClientSetup.HELD_TOOLS.remove(player.getNameForScoreboard());
             } else {
-                final HeldItemContext ctx = ClientSetup.HELD_TOOLS.computeIfAbsent(player.getNameForScoreboard(), v -> new HeldItemContext());
+                final HeldItemContext ctx = ClientSetup.HELD_TOOLS.computeIfAbsent(player.getNameForScoreboard(),
+                    playerName -> new HeldItemContext());
                 ctx.tick(player.getMainHandStack().copy(), player.getOffHandStack().copy());
             }
         }
