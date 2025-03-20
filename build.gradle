@@ -10,6 +10,7 @@ archivesBaseName = project.archives_base_name
 version = project.mod_version
 group = project.maven_group
 String minecraftVersion = project.minecraft_version
+String yaclVersion = project.yacl_version
 
 repositories {
     // Add repositories to retrieve artifacts from in here.
@@ -18,8 +19,12 @@ repositories {
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html
     // for more information about repositories.
     maven {
-        name "cloth config"
-        url "https://maven.shedaniel.me"
+        name = "mod menu"
+        url = "https://maven.terraformersmc.com/releases/"
+    }
+    maven {
+        name = "Xander Maven"
+        url = "https://maven.isxander.dev/releases"
     }
 }
 
@@ -31,9 +36,8 @@ dependencies {
 
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    modImplementation("me.shedaniel.cloth:cloth-config-fabric:${cloth_config_version}") {
-        exclude(group: "net.fabricmc.fabric-api")
-    }
+    modImplementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+    modImplementation ("com.terraformersmc:modmenu:${project.mod_menu_version}")
 }
 
 processResources {
@@ -42,8 +46,13 @@ processResources {
 
     filesMatching("fabric.mod.json") {
         expand "modVersion": project.version,
-               "mcVersion": minecraftVersion
+               "mcVersion": minecraftVersion,
+               "yaclVersion" : yaclVersion
     }
+}
+
+loom {
+    accessWidenerPath.set(file("src/main/resources/backtools.accesswidener"))
 }
 
 tasks.withType(JavaCompile).configureEach {

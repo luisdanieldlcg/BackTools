@@ -20,16 +20,20 @@
     ],
     "client": [
       "com.daniking.backtools.ClientSetup"
+    ],
+    "modmenu": [
+      "com.daniking.backtools.config.ModMenuIntegration"
     ]
   },
   "mixins": [
     "backtools.mixins.json"
   ],
+  "accessWidener" : "backtools.accesswidener",
 
   "depends": {
     "fabricloader": "*",
     "fabric": "*",
-    "minecraft": "=${mcVersion}",
-    "cloth-config2": "*"
+    "minecraft": "*",
+    "yet_another_config_lib_v3": ">=${yaclVersion}"
   }
 }

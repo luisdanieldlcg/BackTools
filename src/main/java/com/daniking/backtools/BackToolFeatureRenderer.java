@@ -1,5 +1,7 @@
 package com.daniking.backtools;
 
+import com.daniking.backtools.config.ConfigHandler;
+import com.daniking.backtools.config.ToolTransformation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
@@ -30,10 +32,10 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
     @Override
     public void render(final @NotNull MatrixStack matrixStack, final @NotNull VertexConsumerProvider vertexConsumerProvider, final int light,
                        final @NotNull PlayerEntityRenderState playerRenderState, final float limbAngle, final float limbDistance) {
-        if (!(playerRenderState.capeVisible && playerRenderState.skinTextures.capeTexture() != null && !ConfigHandler.shouldRenderWithCapes()) &&
-            !playerRenderState.invisible && playerRenderState.sleepingDirection == null && // todo render belt tools when sleeping and regardless of cape
-            ClientSetup.HELD_TOOLS.containsKey(playerRenderState.name)) {
+        final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || ConfigHandler.shouldRenderWithCapes()) &&
+            playerRenderState.sleepingDirection == null;
 
+        if (!playerRenderState.invisible && ClientSetup.HELD_TOOLS.containsKey(playerRenderState.name)) {
             final HeldItemContext ctx = ClientSetup.HELD_TOOLS.get(playerRenderState.name);
 
             if (ctx.droppedEntity != null) {
@@ -44,79 +46,95 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
             final float age = ConfigHandler.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
             final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
 
-            renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light); // Mainhand stack
-            renderItem(this.offStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.LEFT, age, light); // Offhand stack
+            renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light, shouldRenderBack); // Mainhand stack
+            renderItem(this.offStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.LEFT, age, light, shouldRenderBack); // Offhand stack
         }
     }
 
-    private void renderItem(final @NotNull ItemStack stack, final @NotNull MatrixStack matrices, final @NotNull VertexConsumerProvider provider, float offset, final boolean isInverted, final float age, int light) {
+    // https://github.com/JOML-CI/JOML/wiki/Tutorial---Matrix-Transformation-Order
+    // Always do the offset before the rotation, because the coordinate systems transforms with the item
+    private void renderItem(final @NotNull ItemStack stack, final @NotNull MatrixStack matrices, final @NotNull VertexConsumerProvider provider, float offset, final boolean isInverted, final float age, int light, final boolean shouldRenderBack) {
         if (!stack.isEmpty()) {
-            final Item item = stack.getItem();
             matrices.push();
 
-            float orientationZ = ConfigHandler.getBeltOrientation(item);
-            if (orientationZ != Float.MIN_VALUE) {
-                // always do scaling and translations first before rotating, since the coordinate system rotates with the item
-                // and makes translations afterwards so much harder!
-                final float scale = 0.6F;
-                matrices.scale(scale, scale, scale);
+            ToolTransformation toolTransformation = ConfigHandler.getBeltOrientation(stack);
+            if (toolTransformation != null) { // belt
 
                 if (isInverted) {
-                    matrices.translate(-6 / 16F - 0.025F - offset / 16F, 1F, -0.5 / 16F);
+                    matrices.translate(
+                        -6 / 16F - 0.025F - offset / 16F - toolTransformation.offsetX(),
+                        1F + toolTransformation.offsetY(),
+                        -0.5 / 16F + toolTransformation.offsetZ());
                 } else {
-                    matrices.translate(6 / 16F + 0.025F + offset / 16F, 1F, -0.5 / 16F);
+                    matrices.translate(
+                        6 / 16F + 0.025F + offset / 16F + toolTransformation.offsetX(),
+                        1F + toolTransformation.offsetY(),
+                        -0.5 / 16F + toolTransformation.offsetZ());
                 }
 
+                // rotate to the side of a player
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(90F));
-                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(orientationZ));
-            } else {
-                orientationZ = ConfigHandler.getBackOrientation(item);
 
-                if (orientationZ != Float.MIN_VALUE) {
-                    // default shield doesn't look good. So we scale it up and
-                    if (item instanceof ShieldItem) {
-                        float scale = 1.5F;
-                        matrices.scale(scale, scale, scale);
+                if (toolTransformation.rotationX() != 0) {
+                    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(toolTransformation.rotationX()));
+                }
+                if (toolTransformation.rotationX() != 0) {
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(toolTransformation.rotationY()));
+                }
+                if (toolTransformation.rotationX() != 0) {
+                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(toolTransformation.rotationZ()));
+                }
 
-                        if (isInverted) {
-                            // tiny difference to avoid z-fighting if main and offhand item get rendered at the same time
-                            matrices.translate(0F, 0, 0.001);
+                final float scale = 0.6F;
+                matrices.scale(scale * toolTransformation.scaleX(), scale * toolTransformation.scaleY(), scale * toolTransformation.scaleZ());
+            } else if(shouldRenderBack) {
+                toolTransformation = ConfigHandler.getBackOrientation(stack);
 
-                            matrices.translate(1 / 16F, 3 / 16F, 0.025F + offset / 16F);
-                            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(orientationZ));
-                        } else {
-                            matrices.translate(-1 / 16F, 3 / 16F, 0.025F + offset / 16F);
-                            matrices.multiply(RotationAxis.NEGATIVE_Z.rotationDegrees(90 + orientationZ));
-                        }
+                if (toolTransformation != null) { // back
+
+                    if (isInverted) {
+                        // tiny difference to avoid z-fighting if main and offhand item get rendered at the same time
+                        matrices.translate(0F, 0, 0.001);
+                        matrices.translate(
+                            -toolTransformation.offsetX(),
+                            4F / 16F + toolTransformation.offsetY(),
+                            1.91F / 16F + 0.025F + offset / 16F + toolTransformation.offsetZ());
 
                         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
-                        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(90));
                     } else {
-                        matrices.translate(0F, 4F / 16F, 1.91F / 16F + 0.025F + offset / 16F);
+                        matrices.translate(
+                            toolTransformation.offsetX(),
+                            4F / 16F + toolTransformation.offsetY(),
+                            1.91F / 16F + 0.025F + offset / 16F + toolTransformation.offsetZ());
+                    }
 
+                    if (toolTransformation.rotationX() != 0) {
+                        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(toolTransformation.rotationX()));
+                    }
+                    if (toolTransformation.rotationX() != 0) {
+                        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(toolTransformation.rotationY()));
+                    }
+                    if (toolTransformation.rotationX() != 0) {
                         if (isInverted) {
-                            // tiny difference to avoid z-fighting if main and offhand item get rendered at the same time
-                            matrices.translate(0F, 0, 0.001);
-                            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
-                        }
-
-                        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(orientationZ));
-
-                        // again special case for fishing rod and alike since they look wierd with the fishing line defying gravity
-                        if (item instanceof FishingRodItem || item instanceof OnAStickItem) {
-                            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180F));
-                            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(90F));
-                        }
-
-                        if (age > 0) {
-                            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
+                            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(toolTransformation.rotationZ()));
+                        } else {
+                            matrices.multiply(RotationAxis.NEGATIVE_Z.rotationDegrees(toolTransformation.rotationZ()));
                         }
                     }
+
+                    if (age > 0) {
+                        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
+                    }
+
+                    matrices.scale(toolTransformation.scaleX(), toolTransformation.scaleY(), toolTransformation.scaleZ());
                 } else {
                     BackTools.LOGGER.info("Item {} was marked as enabled, but was neither a back nor a belt tool!", stack.getItem());
                     matrices.pop();
                     return; // Early return, without render, if neither back nor belt tool
                 }
+            } else {
+                matrices.pop();
+                return;
             }
 
             MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);

@@ -1,6 +1,7 @@
 package com.daniking.backtools;
 
 
+import com.daniking.backtools.config.ConfigHandler;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -40,14 +41,14 @@ public class HeldItemContext {
             previousOff = activeOff;
             activeOff = ItemStack.EMPTY;
         }
-        if (ConfigHandler.isItemEnabled(main.getItem())) {
+        if (ConfigHandler.isItemEnabled(main)) {
             activeMain = main;
             if (ItemStack.areItemsAndComponentsEqual(activeMain, activeOff)) {
                 activeOff = ItemStack.EMPTY;
             }
         }
 
-        if (ConfigHandler.isItemEnabled(off.getItem())) {
+        if (ConfigHandler.isItemEnabled(off)) {
             activeOff = off;
             if (ItemStack.areItemsAndComponentsEqual(activeOff, activeMain)) {
                 activeMain = ItemStack.EMPTY;
