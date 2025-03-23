@@ -3,12 +3,13 @@ package com.daniking.backtools.config;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.component.ComponentChanges;
+import net.minecraft.component.ComponentType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 
 @Environment(EnvType.CLIENT)
 public final class ToolTransformation {
@@ -50,8 +51,39 @@ public final class ToolTransformation {
         return EMPTY;
     }
 
-    public boolean matches(final @Nullable ComponentChanges componentChanges) {
-        return Objects.equals(this.componentChanges, componentChanges);
+    /**
+     * @return true, if the ComponentChanges hold by this Object are null / empty,
+     * or if all ComponentTypes of this object's ComponentChanges map to the same optional value in the parameter.
+     * <p>
+     * This effectively means, in the non-trivial case, that all changes in this object must be the same as the parameter one.
+     * But the parameter one may contain additional ComponentChanges, that are ignored.
+     */
+    public boolean matches(final @Nullable ComponentChanges otherComponentChanges) {
+        if (this.componentChanges == otherComponentChanges) {
+            return true;
+        } else if (this.componentChanges == null || this.componentChanges.isEmpty()) {
+            return true;
+        } else if (otherComponentChanges == null || otherComponentChanges.isEmpty()) {
+            return false;
+        } else { // both != null
+            for (final @NotNull Map.Entry<@NotNull ComponentType<?>, @NotNull Optional<?>> entry : this.componentChanges.entrySet()) {
+                if (!entry.getValue().equals(otherComponentChanges.get(entry.getKey()))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @return true, if the ComponentChanges hold by this Object are null / empty,
+     * or if all ComponentTypes of this object's ComponentChanges map to the same optional value in the parameter.
+     * <p>
+     * This effectively means, in the non-trivial case, that all changes in this object must be the same as the parameter one.
+     * But the parameter one may contain additional ComponentChanges, that are ignored.
+     */
+    public boolean matches(final @NotNull ToolTransformation otherToolTransformation) {
+        return matches(otherToolTransformation.componentChanges);
     }
 
     public float rotationX() {
@@ -141,35 +173,6 @@ public final class ToolTransformation {
                 offsetZ = Math.max(0, Math.min(temp, Integer.MAX_VALUE));
             }
         }
-
-        /* // todo
-        ComponentChanges changes;
-        boolean isNegative = false;
-        if (serialized.getKey() == null || serialized.getKey().isBlank()) {
-            changes = null;
-
-        } else {
-            final Matcher matcher = NEGATIVE_PATTERN.matcher(serialized.getKey());
-
-            if (matcher.matches()) {
-                if (matcher.group("isNegative") != null) {
-                    isNegative = true;
-                }
-
-                ConfigHandler.
-
-            } else {
-                changes = null;
-            }
-
-            try {
-                changes = ComponentChanges.CODEC.parse(BuiltinRegistries.createWrapperLookup().getOps(NbtOps.INSTANCE), StringNbtReader.parse(serialized.getKey())).
-                    result().orElse(null);
-            } catch (CommandSyntaxException e) {
-                changes = null;
-                // todo log
-            }
-        }*/
 
         return new ToolTransformation(
             changes,

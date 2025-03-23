@@ -1,5 +1,6 @@
 package com.daniking.backtools.config;
 
+import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.SemanticVersion;
@@ -9,9 +10,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
+/**
+ * This class holds the config as it gets represented in the config file.
+ * The values get parsed and interpreted in {@link ConfigHandler}
+ * Also the values you can see here are the default ones.
+ */
 @Environment(EnvType.CLIENT)
-//@Config(name = "BackTools")
-public class BackToolsConfig /*implements ConfigData*/ { // todo version
+public class BackToolsConfig {
     public static final @NotNull String
         ROTATION_KEY = "rotation",
         OFFSET_KEY = "offset",
@@ -19,17 +24,26 @@ public class BackToolsConfig /*implements ConfigData*/ { // todo version
         X_KEY = "x",
         Y_KEY = "y",
         Z_KEY = "z";
+    public static final Version CURRENT_VERSION;
 
-    /*@Comment(value = """
+    static {
+        try {
+            CURRENT_VERSION = SemanticVersion.parse("1.0.0");
+        } catch (VersionParsingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SerialEntry(comment = """
         --!> These options affect only the client that loads the mod. <!--
         
         
         Version of this config. Here to make updating this to a newer data format possible.
         DON'T TOUCH!
         Or do and suffer the consequences. I'm not your real dad anyway.
-        """)*/
-    //@ConfigEntry.Gui.Excluded
-    public final Version configVersion = SemanticVersion.parse("1.0.0");
+        """)
+    public Version configVersion = CURRENT_VERSION;
+    @SerialEntry // todo communicate later matching (i.e. ones with LESS components) overwrite previous ones
     public Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Float>>> backTools = Map.ofEntries(
         Map.entry("#minecraft:pickaxes", Map.of()),
         Map.entry("#minecraft:axes", Map.of()),
@@ -71,6 +85,7 @@ public class BackToolsConfig /*implements ConfigData*/ { // todo version
                 Z_KEY, 1.5F)
         ))
     );
+    @SerialEntry
     public Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Float>>> beltTools = Map.ofEntries(
         Map.entry("#minecraft:bundles", Map.of(ROTATION_KEY, Map.of(Z_KEY, 180f))),
         Map.entry("minecraft:potion", Map.of(ROTATION_KEY, Map.of(Z_KEY, 180f))),
@@ -78,13 +93,8 @@ public class BackToolsConfig /*implements ConfigData*/ { // todo version
         Map.entry("minecraft:lingering_potion", Map.of(ROTATION_KEY, Map.of(Z_KEY, 180f))),
         Map.entry("minecraft:lead", Map.of(ROTATION_KEY, Map.of(Z_KEY, 180f)))
     );
-    //@Comment(value = "Get in swimming position and your tools go \"Weeee\"")
+    @SerialEntry(comment = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;
-    //@Comment(value = "If true, tools render with capes")
+    @SerialEntry(comment = "If true, tools render with capes")
     public boolean renderWithCapes = false;
-
-    // default constructor just added because of Exception.
-    // DON'T USE! AutoConfig will generate an instance!
-    public BackToolsConfig() throws VersionParsingException {
-    }
 }

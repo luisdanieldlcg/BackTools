@@ -1,5 +1,6 @@
 package com.daniking.backtools.config;
 
+import com.daniking.backtools.BackTools;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
@@ -11,6 +12,7 @@ import net.minecraft.component.ComponentType;
 import net.minecraft.component.MergedComponentMap;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.RegistryWrapper;
@@ -23,9 +25,7 @@ import net.minecraft.util.Unit;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.LinkedHashSet;
-import java.util.SequencedCollection;
-import java.util.SequencedSet;
+import java.util.*;
 
 public class ItemTagStringReader extends ItemStringReader {
     static final DynamicCommandExceptionType INVALID_ITEM_ID_EXCEPTION = new DynamicCommandExceptionType(
@@ -93,7 +93,7 @@ public class ItemTagStringReader extends ItemStringReader {
                 reader.skip();
                 final Identifier identifier = Identifier.fromCommandInput(reader);
 
-                RegistryEntryList.Named<Item> registryEntries = ItemTagStringReader.this.itemRegistry.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
+                final RegistryEntryList.Named<Item> registryEntries = Registries.ITEM.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> { // alternative ItemTagStringReader.this.itemRegistry
                     reader.setCursor(indexBefore);
                     return ItemTagStringReader.INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
                 });

@@ -12,7 +12,8 @@ import net.minecraft.client.render.entity.feature.PlayerHeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.*;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
 import org.jetbrains.annotations.Contract;
@@ -32,7 +33,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
     @Override
     public void render(final @NotNull MatrixStack matrixStack, final @NotNull VertexConsumerProvider vertexConsumerProvider, final int light,
                        final @NotNull PlayerEntityRenderState playerRenderState, final float limbAngle, final float limbDistance) {
-        final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || ConfigHandler.shouldRenderWithCapes()) &&
+        final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || ClientSetup.CONFIG_HANDLER.shouldRenderWithCapes()) &&
             playerRenderState.sleepingDirection == null;
 
         if (!playerRenderState.invisible && ClientSetup.HELD_TOOLS.containsKey(playerRenderState.name)) {
@@ -42,8 +43,8 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 return;
             }
             this.setRenders(ctx.previousMain, ctx.previousOff, playerRenderState.mainArm);
-            this.getContextModel().body.applyTransform(matrixStack);
-            final float age = ConfigHandler.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
+            this.getContextModel().body.rotate(matrixStack);
+            final float age = ClientSetup.CONFIG_HANDLER.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
             final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
 
             renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light, shouldRenderBack); // Mainhand stack
@@ -57,7 +58,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
         if (!stack.isEmpty()) {
             matrices.push();
 
-            ToolTransformation toolTransformation = ConfigHandler.getBeltOrientation(stack);
+            ToolTransformation toolTransformation = ClientSetup.CONFIG_HANDLER.getBeltOrientation(stack);
             if (toolTransformation != null) { // belt
 
                 if (isInverted) {
@@ -88,7 +89,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 final float scale = 0.6F;
                 matrices.scale(scale * toolTransformation.scaleX(), scale * toolTransformation.scaleY(), scale * toolTransformation.scaleZ());
             } else if(shouldRenderBack) {
-                toolTransformation = ConfigHandler.getBackOrientation(stack);
+                toolTransformation = ClientSetup.CONFIG_HANDLER.getBackOrientation(stack);
 
                 if (toolTransformation != null) { // back
 
@@ -137,7 +138,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 return;
             }
 
-            MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
             matrices.pop();
         }
     }
