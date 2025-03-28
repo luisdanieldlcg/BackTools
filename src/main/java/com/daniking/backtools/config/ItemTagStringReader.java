@@ -1,6 +1,5 @@
 package com.daniking.backtools.config;
 
-import com.daniking.backtools.BackTools;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
@@ -25,7 +24,9 @@ import net.minecraft.util.Unit;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.SequencedCollection;
+import java.util.SequencedSet;
 
 public class ItemTagStringReader extends ItemStringReader {
     static final DynamicCommandExceptionType INVALID_ITEM_ID_EXCEPTION = new DynamicCommandExceptionType(

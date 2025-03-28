@@ -5,7 +5,10 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.fabricmc.loader.impl.metadata.*;
+import net.fabricmc.loader.impl.metadata.DependencyOverrides;
+import net.fabricmc.loader.impl.metadata.ModMetadataParser;
+import net.fabricmc.loader.impl.metadata.ParseMetadataException;
+import net.fabricmc.loader.impl.metadata.VersionOverrides;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -28,7 +31,8 @@ public class BackTools implements ModInitializer {
 	public void onInitialize() {
 		@Nullable Version version = null;
 
-		CodeSource src = BackTools.class.getProtectionDomain().getCodeSource();
+		// fetch mod name, id and version from our fabric.mod.json, since fabric doesn't have any api for it
+		final @Nullable CodeSource src = BackTools.class.getProtectionDomain().getCodeSource();
 		if (src != null) {
 			final @NotNull URL jarUrl = src.getLocation();
 
@@ -46,6 +50,8 @@ public class BackTools implements ModInitializer {
 						modID = metadata.getId();
 						modName = metadata.getName();
 						version = metadata.getVersion();
+
+						break;
 					}
 				}
 			} catch (IOException | ParseMetadataException e) {
@@ -55,7 +61,7 @@ public class BackTools implements ModInitializer {
 
 		BackTools.run(EnvType.SERVER, () -> () -> LOGGER.info("You are loading {} on a server.{} is a client side-only mod!", modName, modName));
 		final @Nullable Version finalVersion = version; // fuck java and its final variable in lambda policy. I could guarantee, that the version gets assigned in the try or catch, but never at both, but the compiler doesn't understand that...
-		BackTools.run(EnvType.CLIENT, () -> () -> LOGGER.info("{} V{} Initialized", modName, finalVersion == null ? " unknown" : finalVersion.getFriendlyString()));
+		BackTools.run(EnvType.CLIENT, () -> () -> LOGGER.info("{} V{} Initialized", modName, finalVersion == null ? "ersion unknown" : finalVersion.getFriendlyString()));
 	}
 
 	public static void run(final EnvType type, final Supplier<Runnable> supplier) {

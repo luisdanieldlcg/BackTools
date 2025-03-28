@@ -40,8 +40,8 @@ import java.util.regex.Pattern;
 public class ConfigHandler {
     private final static @NotNull Pattern NEGATIVE_PATTERN = Pattern.compile("^\\s*?(?<isNegative>-)?\\s*?(?<data>.*)\\s*?$");
     private final static @NotNull DateFormat COPY_DATE_FORMAT = new SimpleDateFormat("'BackTools_backup_'yyyy-MM-dd-HH-mm-ss'.json5'");
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = new LinkedHashMap<>();
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = new LinkedHashMap<>();
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = Collections.emptySortedMap();
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Collections.emptySortedMap();
 
     private final @NotNull ConfigClassHandler<BackToolsConfig> yaclHandler = ConfigClassHandler.createBuilder(BackToolsConfig.class).
         id(Identifier.of(BackTools.modID, "general_config")).
@@ -132,29 +132,32 @@ public class ConfigHandler {
     public void reload() {
         yaclHandler.load();
 
-        if (yaclHandler.instance().configVersion.compareTo(BackToolsConfig.CURRENT_VERSION) < 0) {
+        final @Nullable Version configVersion = yaclHandler.instance().configVersion;
+        if (configVersion == null || configVersion.compareTo(BackToolsConfig.CURRENT_VERSION) > 0) {
             final String copiedFileName = COPY_DATE_FORMAT.format(new Date());
 
             try {
                 Files.copy(YACLPlatform.getConfigDir().resolve("BackTools.json5"), YACLPlatform.getConfigDir().resolve(copiedFileName));
 
-                BackTools.LOGGER.warn("The config version is newer than expected! This may cause the config to not load, break or even overwrite with default data for this version! I copied your old config to {}, to be safe", copiedFileName);
+                BackTools.LOGGER.warn("The config version is missing or newer than expected! This may cause the config to not load, break or even overwrite with default data for this version! I copied your old config to {}, to be safe", copiedFileName);
             } catch (IOException e) {
-                BackTools.LOGGER.warn("The config version is newer than expected! This may cause the config to not load, break or even overwrite with default data for this version! I tried to copy your old config to {} but encountered an exception: ", copiedFileName, e);
+                BackTools.LOGGER.warn("The config version is missing or newer than expected! This may cause the config to not load, break or even overwrite with default data for this version! I tried to copy your old config to {} but encountered an exception: ", copiedFileName, e);
             }
+        } else if (configVersion.compareTo(BackToolsConfig.CURRENT_VERSION) < 0) {
+            // data fixer upper config here
         }
 
-        // parse configurated Items
+        // parse configured Items
         backConfigurations = processToolConfig(yaclHandler.instance().backTools);
         beltConfigurations = processToolConfig(yaclHandler.instance().beltTools);
 
         saveConfig();
     }
 
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Float>>> rawMap) {
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull String, ? extends @NotNull Map<@NotNull String, ? extends @NotNull Object>> rawMap) {
         final @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> resultMap = new LinkedHashMap<>();
 
-        for (Map.Entry<@NotNull String, @NotNull Map<@NotNull String, @NotNull Map<@NotNull String, @NotNull Float>>> configEntry : rawMap.entrySet()) {
+        for (Map.Entry<@NotNull String, ? extends @NotNull Map<@NotNull String, ? extends @NotNull Object>> configEntry : rawMap.entrySet()) {
             final @NotNull Matcher matcher = NEGATIVE_PATTERN.matcher(configEntry.getKey());
 
             if (matcher.matches()) {

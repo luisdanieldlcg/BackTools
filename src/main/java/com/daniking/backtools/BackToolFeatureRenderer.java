@@ -1,6 +1,5 @@
 package com.daniking.backtools;
 
-import com.daniking.backtools.config.ConfigHandler;
 import com.daniking.backtools.config.ToolTransformation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -12,12 +11,13 @@ import net.minecraft.client.render.entity.feature.PlayerHeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.RotationAxis;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends PlayerHeldItemFeatureRenderer<PlayerEntityRenderState, M> {
@@ -43,7 +43,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 return;
             }
             this.setRenders(ctx.previousMain, ctx.previousOff, playerRenderState.mainArm);
-            this.getContextModel().body.rotate(matrixStack);
+            this.getContextModel().body.applyTransform(matrixStack);
             final float age = ClientSetup.CONFIG_HANDLER.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
             final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
 
@@ -54,21 +54,24 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
 
     // https://github.com/JOML-CI/JOML/wiki/Tutorial---Matrix-Transformation-Order
     // Always do the offset before the rotation, because the coordinate systems transforms with the item
-    private void renderItem(final @NotNull ItemStack stack, final @NotNull MatrixStack matrices, final @NotNull VertexConsumerProvider provider, float offset, final boolean isInverted, final float age, int light, final boolean shouldRenderBack) {
+    private void renderItem(final @NotNull ItemStack stack,
+                            final @NotNull MatrixStack matrices, final @NotNull VertexConsumerProvider provider,
+                            float offset, final boolean isInverted, final float age, int light,
+                            final boolean shouldRenderBack) {
         if (!stack.isEmpty()) {
             matrices.push();
 
-            ToolTransformation toolTransformation = ClientSetup.CONFIG_HANDLER.getBeltOrientation(stack);
+            @Nullable ToolTransformation toolTransformation = ClientSetup.CONFIG_HANDLER.getBeltOrientation(stack);
             if (toolTransformation != null) { // belt
 
                 if (isInverted) {
                     matrices.translate(
-                        -6 / 16F - 0.025F - offset / 16F - toolTransformation.offsetX(),
+                        - 0.22F - offset / 16F - toolTransformation.offsetX(),
                         1F + toolTransformation.offsetY(),
                         -0.5 / 16F + toolTransformation.offsetZ());
                 } else {
                     matrices.translate(
-                        6 / 16F + 0.025F + offset / 16F + toolTransformation.offsetX(),
+                        0.22F + offset / 16F + toolTransformation.offsetX(),
                         1F + toolTransformation.offsetY(),
                         -0.5 / 16F + toolTransformation.offsetZ());
                 }
@@ -100,8 +103,6 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                             -toolTransformation.offsetX(),
                             4F / 16F + toolTransformation.offsetY(),
                             1.91F / 16F + 0.025F + offset / 16F + toolTransformation.offsetZ());
-
-                        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
                     } else {
                         matrices.translate(
                             toolTransformation.offsetX(),
@@ -112,10 +113,14 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                     if (toolTransformation.rotationX() != 0) {
                         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(toolTransformation.rotationX()));
                     }
-                    if (toolTransformation.rotationX() != 0) {
-                        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(toolTransformation.rotationY()));
+                    if (toolTransformation.rotationY() != 0) {
+                        if (isInverted) {
+                            matrices.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(toolTransformation.rotationY()));
+                        } else {
+                            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(toolTransformation.rotationY()));
+                        }
                     }
-                    if (toolTransformation.rotationX() != 0) {
+                    if (toolTransformation.rotationZ() != 0) {
                         if (isInverted) {
                             matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(toolTransformation.rotationZ()));
                         } else {
@@ -125,6 +130,10 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
 
                     if (age > 0) {
                         matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(age * 40F));
+                    }
+
+                    if (isInverted && toolTransformation.isSymmetric()) {
+                        matrices.scale(-1F, 1F, -1F);
                     }
 
                     matrices.scale(toolTransformation.scaleX(), toolTransformation.scaleY(), toolTransformation.scaleZ());
@@ -138,7 +147,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
                 return;
             }
 
-            MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ModelTransformationMode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
             matrices.pop();
         }
     }
