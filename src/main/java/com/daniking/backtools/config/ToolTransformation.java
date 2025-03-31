@@ -2,6 +2,7 @@ package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.ClientSetup;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
 import com.google.gson.TypeAdapter;
@@ -23,10 +24,11 @@ import java.util.Optional;
 
 @SuppressWarnings("ClassExplicitlyExtendsObject") // we need to explicitly extend Object to inherit doc for equals (IntelliJ IDEA 2024.3.5 (Community Edition))
 @Environment(EnvType.CLIENT)
-public final class ToolTransformation extends Object { // todo don't purge unreadeble data! Maybe one world / server has some datapack another doesn't. We shouldn't remove them from the config because you joined a "wrong" world.
+public class ToolTransformation extends Object {
     private final static ToolTransformation EMPTY = new ToolTransformationBuilder().build();
 
     private final @Nullable ComponentChanges componentChanges;
+    private final transient @Nullable JsonElement invalidChanges;
     private final float rotationX;
     private final float rotationY;
     private final float rotationZ;
@@ -48,7 +50,20 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
                               float rotationX, float rotationY, float rotationZ,
                               @Range(from = 0, to = Integer.MAX_VALUE) float scaleX, @Range(from = 0, to = Integer.MAX_VALUE) float scaleY, @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ,
                               boolean isSymmetric, boolean isBlacklisted) {
+        this(componentChanges, null,
+            offsetX, offsetY, offsetZ,
+            rotationX, rotationY, rotationZ,
+            scaleX, scaleY, scaleZ,
+            isSymmetric, isBlacklisted);
+    }
+
+    protected ToolTransformation(@Nullable ComponentChanges componentChanges, @Nullable JsonElement invalidChanges,
+                                 float offsetX, float offsetY, float offsetZ,
+                                 float rotationX, float rotationY, float rotationZ,
+                                 @Range(from = 0, to = Integer.MAX_VALUE) float scaleX, @Range(from = 0, to = Integer.MAX_VALUE) float scaleY, @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ,
+                                 boolean isSymmetric, boolean isBlacklisted) {
         this.componentChanges = componentChanges;
+        this.invalidChanges = invalidChanges;
         this.rotationX = rotationX;
         this.rotationY = rotationY;
         this.rotationZ = rotationZ;
@@ -66,6 +81,10 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
         return EMPTY;
     }
 
+    public boolean isInvalid () {
+        return invalidChanges != null;
+    }
+
     /**
      * @return true, if the ComponentChanges hold by this Object are null / empty,
      * or if all ComponentTypes of this object's ComponentChanges map to the same optional value in the parameter.
@@ -74,7 +93,9 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
      * But the parameter one may contain additional ComponentChanges, that are ignored.
      */
     public boolean matches(final @Nullable ComponentChanges otherComponentChanges) {
-        if (this.componentChanges == otherComponentChanges) {
+        if (this.isInvalid()) { // should never happen, since the ConfigHandler will sort out all invalid entries
+            return false;
+        } else if (this.componentChanges == otherComponentChanges) {
             return true;
         } else if (this.componentChanges == null || this.componentChanges.isEmpty()) {
             return true;
@@ -98,6 +119,10 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
      * But the parameter one may contain additional ComponentChanges, that are ignored.
      */
     public boolean matches(final @NotNull ToolTransformation otherToolTransformation) {
+        if (otherToolTransformation.isInvalid()) {
+            return false; // this.isInvalid gets checked in the other method; should never happen, since the ConfigHandler will sort out all invalid entries
+        }
+
         return matches(otherToolTransformation.componentChanges);
     }
 
@@ -206,9 +231,17 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
         private @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ = 1f;
         private boolean isSymmetric = true;
         private boolean isBlacklisted = false;
+        private @Nullable JsonElement invalidComponentChanges = null;
 
         public @NotNull ToolTransformationBuilder componentChanges(@Nullable ComponentChanges componentChanges) {
             this.changes = componentChanges;
+
+            return this;
+        }
+
+        protected @NotNull ToolTransformationBuilder invalidComponentChanges (@NotNull JsonElement invalidComponentChanges) {
+            this.changes = null;
+            this.invalidComponentChanges = invalidComponentChanges;
 
             return this;
         }
@@ -281,7 +314,7 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
 
         public @NotNull ToolTransformation build() {
             return new ToolTransformation(
-                changes,
+                changes, invalidComponentChanges,
                 offsetX, offsetY, offsetZ, rotationX, rotationY, rotationZ,
                 scaleX, scaleY, scaleZ,
                 isSymmetric, isBlacklisted);
@@ -300,8 +333,6 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
             Y_KEY = "y",
             Z_KEY = "z";
 
-        private static final @NotNull ComponentChangesTypeAdapter COMPONENT_CHANGES_TYPE_ADAPTER = new ComponentChangesTypeAdapter();
-
         private static void warnUnknown(@NotNull JsonReader jsonReader) throws IOException {
             BackTools.LOGGER.warn("I have unexpectedly just read {} with type {} did you downgrade?", jsonReader.getPath(), jsonReader.peek());
         }
@@ -310,12 +341,17 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
         public void write(final @NotNull JsonWriter jsonWriter, final @NotNull ToolTransformation toolTransformation) throws IOException {
             jsonWriter.beginObject();
 
-            if (toolTransformation.componentChanges != null && !toolTransformation.componentChanges.isEmpty()) {
+            if (toolTransformation.invalidChanges != null) {
+                jsonWriter.name(COMPONENTS_KEY);
+                Streams.write(toolTransformation.invalidChanges, jsonWriter);
+
+            } else if (toolTransformation.componentChanges != null && !toolTransformation.componentChanges.isEmpty()) {
                 jsonWriter.name(COMPONENTS_KEY);
 
-                //jsonWriter.beginObject();
-                COMPONENT_CHANGES_TYPE_ADAPTER.write(jsonWriter, toolTransformation.componentChanges);
-                //jsonWriter.endObject();
+                final Strictness strictnessBefore = jsonWriter.getStrictness();
+                jsonWriter.setStrictness(Strictness.LENIENT);
+                Streams.write(ComponentChanges.CODEC.encodeStart(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), toolTransformation.componentChanges).getOrThrow(IOException::new), jsonWriter);
+                jsonWriter.setStrictness(strictnessBefore);
             }
 
             if (toolTransformation.offsetX() != 0 || toolTransformation.offsetY() != 0 || toolTransformation.offsetZ() != 0) {
@@ -404,7 +440,21 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
             jsonReader.beginObject();
             while (jsonReader.hasNext()) {
                 switch (jsonReader.nextName()) {
-                    case COMPONENTS_KEY -> builder.componentChanges(COMPONENT_CHANGES_TYPE_ADAPTER.read(jsonReader)); // no begin / end object here, the adapter will take care of this
+                    case COMPONENTS_KEY -> {
+                        // no begin / end object here, the parser will take care of this
+                        final JsonElement element = JsonParser.parseReader(jsonReader);
+
+                        try {
+                            builder.componentChanges(
+                                ComponentChanges.CODEC.decode(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), element).
+                                    getOrThrow(IOException::new).getFirst()
+                            );
+                        } catch (IOException e) {
+                            BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context. This may happen if a data pack is missing or it was misconfigured. {}", e.getMessage());
+
+                            builder.invalidComponentChanges(element);
+                        }
+                    }
                     case OFFSET_KEY -> {
                         jsonReader.beginObject();
 
@@ -458,21 +508,6 @@ public final class ToolTransformation extends Object { // todo don't purge unrea
             jsonReader.endObject();
 
             return builder.build();
-        }
-    }
-
-    private static class ComponentChangesTypeAdapter extends TypeAdapter<ComponentChanges> {
-        @Override
-        public void write(final @NotNull JsonWriter out, final @NotNull ComponentChanges value) throws IOException {
-            final Strictness strictnessBefore = out.getStrictness();
-            out.setStrictness(Strictness.LENIENT);
-            Streams.write(ComponentChanges.CODEC.encodeStart(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), value).getOrThrow(IOException::new), out);
-            out.setStrictness(strictnessBefore);
-        }
-
-        @Override
-        public @NotNull ComponentChanges read(final @NotNull JsonReader in) throws IOException {
-            return ComponentChanges.CODEC.decode(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), JsonParser.parseReader(in)).getOrThrow(IOException::new).getFirst();
         }
     }
 }

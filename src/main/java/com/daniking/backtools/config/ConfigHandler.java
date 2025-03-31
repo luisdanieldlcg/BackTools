@@ -177,6 +177,10 @@ public class ConfigHandler {
         final @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> resultMap = new LinkedHashMap<>();
 
         for (Map.Entry<@NotNull String, @NotNull ToolTransformation> configEntry : rawMap.entrySet()) {
+            if (configEntry.getValue().isInvalid()) { // just ignore invalid entries
+                continue;
+            }
+
             try {
                 for (RegistryEntry<Item> entryItemResult : readItems(configEntry.getKey(), itemRegistry)) {
                     final @NotNull Item item = entryItemResult.value().asItem();
