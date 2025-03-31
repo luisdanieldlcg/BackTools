@@ -1,6 +1,0 @@
-accessWidener v2 named
-
-extendable class net/minecraft/command/argument/ItemStringReader$Reader
-accessible method net/minecraft/command/argument/ItemStringReader$Reader readComponents ()V
-accessible  field net/minecraft/command/argument/ItemStringReader itemRegistry Lnet/minecraft/registry/RegistryWrapper$Impl;
-accessible method net/minecraft/command/argument/ItemStringReader$Reader <init> (Lnet/minecraft/command/argument/ItemStringReader;Lcom/mojang/brigadier/StringReader;Lnet/minecraft/command/argument/ItemStringReader$Callbacks;)V

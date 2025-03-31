@@ -20,7 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
-public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends PlayerHeldItemFeatureRenderer<PlayerEntityRenderState, M> {
+public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends PlayerHeldItemFeatureRenderer<PlayerEntityRenderState, M> {
     public ItemStack mainStack = ItemStack.EMPTY;
     public ItemStack offStack = ItemStack.EMPTY;
     public Arm mainArm = Arm.RIGHT;
@@ -66,7 +66,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
 
                 if (isInverted) {
                     matrices.translate(
-                        - 0.22F - offset / 16F - toolTransformation.offsetX(),
+                        -0.22F - offset / 16F - toolTransformation.offsetX(),
                         1F + toolTransformation.offsetY(),
                         -0.5 / 16F + toolTransformation.offsetZ());
                 } else {
@@ -91,7 +91,7 @@ public class BackToolFeatureRenderer <M extends PlayerEntityModel> extends Playe
 
                 final float scale = 0.6F;
                 matrices.scale(scale * toolTransformation.scaleX(), scale * toolTransformation.scaleY(), scale * toolTransformation.scaleZ());
-            } else if(shouldRenderBack) {
+            } else if (shouldRenderBack) {
                 toolTransformation = ClientSetup.CONFIG_HANDLER.getBackOrientation(stack);
 
                 if (toolTransformation != null) { // back

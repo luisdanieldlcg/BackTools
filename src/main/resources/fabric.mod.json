@@ -28,7 +28,6 @@
   "mixins": [
     "backtools.mixins.json"
   ],
-  "accessWidener" : "backtools.accesswidener",
 
   "depends": {
     "fabricloader": "*",

@@ -1,5 +1,13 @@
 package com.daniking.backtools.config;
 
+import com.daniking.backtools.BackTools;
+import com.daniking.backtools.ClientSetup;
+import com.google.gson.JsonParser;
+import com.google.gson.Strictness;
+import com.google.gson.TypeAdapter;
+import com.google.gson.internal.Streams;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.component.ComponentChanges;
@@ -8,13 +16,16 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 @SuppressWarnings("ClassExplicitlyExtendsObject") // we need to explicitly extend Object to inherit doc for equals (IntelliJ IDEA 2024.3.5 (Community Edition))
 @Environment(EnvType.CLIENT)
-public final class ToolTransformation extends Object {
+public final class ToolTransformation extends Object { // todo don't purge unreadeble data! Maybe one world / server has some datapack another doesn't. We shouldn't remove them from the config because you joined a "wrong" world.
+    private final static ToolTransformation EMPTY = new ToolTransformationBuilder().build();
+
     private final @Nullable ComponentChanges componentChanges;
     private final float rotationX;
     private final float rotationY;
@@ -26,13 +37,17 @@ public final class ToolTransformation extends Object {
     private final @Range(from = 0, to = Integer.MAX_VALUE) float scaleY;
     private final @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ;
     private final boolean isSymmetric;
-    private final boolean isNegative;
+    private final boolean isBlacklisted;
 
+    /**
+     * @see #empty()
+     * @see ToolTransformationBuilder
+     */
     public ToolTransformation(@Nullable ComponentChanges componentChanges,
-                              float rotationX, float rotationY, float rotationZ,
                               float offsetX, float offsetY, float offsetZ,
+                              float rotationX, float rotationY, float rotationZ,
                               @Range(from = 0, to = Integer.MAX_VALUE) float scaleX, @Range(from = 0, to = Integer.MAX_VALUE) float scaleY, @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ,
-                              boolean isSymmetric, boolean isNegative) {
+                              boolean isSymmetric, boolean isBlacklisted) {
         this.componentChanges = componentChanges;
         this.rotationX = rotationX;
         this.rotationY = rotationY;
@@ -44,7 +59,11 @@ public final class ToolTransformation extends Object {
         this.scaleY = scaleY;
         this.scaleZ = scaleZ;
         this.isSymmetric = isSymmetric;
-        this.isNegative = isNegative;
+        this.isBlacklisted = isBlacklisted;
+    }
+
+    public static ToolTransformation empty() {
+        return EMPTY;
     }
 
     /**
@@ -122,80 +141,15 @@ public final class ToolTransformation extends Object {
         return isSymmetric;
     }
 
-    public boolean isNegative() {
-        return isNegative;
-    }
-
-    public static @NotNull ToolTransformation deserialize (final @Nullable ComponentChanges changes, final boolean isNegative,
-                                                  final @NotNull Map<@NotNull String, ? extends @NotNull Object> serializedTransformations) {
-        float rotationX = 0f;
-        float rotationY = 0f;
-        float rotationZ = 0f;
-        float offsetX = 0f;
-        float offsetY = 0f;
-        float offsetZ = 0f;
-        @Range(from = 0, to = Integer.MAX_VALUE) float scaleX = 1f;
-        @Range(from = 0, to = Integer.MAX_VALUE) float scaleY = 1f;
-        @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ = 1f;
-        boolean isSymmetric = true;
-
-        if (serializedTransformations.get(BackToolsConfig.ROTATION_KEY) instanceof Map<?, ?> rotationMap) {
-            // using number here, since the type is dependent on the implementation of the config file codec.
-            // gson will return double here, even though we put float in
-            // just to be safe for any format changes in the future we just take number for now;
-            // may want to use instance of float <-- yes in lower case, whenever that's a stable future in java
-            if (rotationMap.get(BackToolsConfig.X_KEY) instanceof Number temp) {
-                rotationX = temp.floatValue();
-            }
-            if (rotationMap.get(BackToolsConfig.Y_KEY)  instanceof Number temp) {
-                rotationY = temp.floatValue();
-            }
-            if (rotationMap.get(BackToolsConfig.Z_KEY) instanceof Number temp) {
-                rotationZ = temp.floatValue();
-            }
-        }
-
-        if (serializedTransformations.get(BackToolsConfig.OFFSET_KEY) instanceof Map<?, ?> rotationMap) {
-            if (rotationMap.get(BackToolsConfig.X_KEY) instanceof Number temp) {
-                offsetX = temp.floatValue();
-            }
-            if (rotationMap.get(BackToolsConfig.Y_KEY) instanceof Number temp) {
-                offsetY = temp.floatValue();
-            }
-            if (rotationMap.get(BackToolsConfig.Z_KEY) instanceof Number temp) {
-                offsetZ = temp.floatValue();
-            }
-        }
-
-        if (serializedTransformations.get(BackToolsConfig.SCALE_KEY) instanceof Map<?, ?> scaleMap) {
-            if (scaleMap.get(BackToolsConfig.X_KEY) instanceof Number temp) {
-                scaleX = Math.max(0, Math.min(temp.floatValue(), Integer.MAX_VALUE));
-            }
-            if (scaleMap.get(BackToolsConfig.Y_KEY) instanceof Number temp) {
-                scaleY = Math.max(0, Math.min(temp.floatValue(), Integer.MAX_VALUE));
-            }
-            if (scaleMap.get(BackToolsConfig.Z_KEY) instanceof Number temp) {
-                scaleZ = Math.max(0, Math.min(temp.floatValue(), Integer.MAX_VALUE));
-            }
-        }
-
-        if (serializedTransformations.get(BackToolsConfig.IS_SYMMETRIC) instanceof Boolean temp) {
-            isSymmetric = temp;
-        }
-
-        return new ToolTransformation(
-            changes,
-            rotationX, rotationY, rotationZ,
-            offsetX, offsetY, offsetZ,
-            scaleX, scaleY, scaleZ,
-            isSymmetric, isNegative);
+    public boolean isBlacklisted() {
+        return isBlacklisted;
     }
 
     @Override
     public @NotNull String toString() {
         return "ToolTransformation[" +
             "componentChanges: " + componentChanges + ", " +
-            "rotationX = " +  rotationX + ", " +
+            "rotationX = " + rotationX + ", " +
             "rotationY = " + rotationY + ", " +
             "rotationZ = " + rotationZ + ", " +
             "offsetX = " + offsetX + ", " +
@@ -205,7 +159,7 @@ public final class ToolTransformation extends Object {
             "scaleY = " + scaleY + ", " +
             "scaleZ = " + scaleZ + ", " +
             "isSymmetric = " + isSymmetric + ", " +
-            "isNegative = " + isNegative +
+            "isBlacklisted = " + isBlacklisted +
             ']';
     }
 
@@ -215,7 +169,7 @@ public final class ToolTransformation extends Object {
             rotationX, rotationY, rotationZ,
             offsetX, offsetY, offsetZ,
             scaleX, scaleY, scaleZ,
-            isSymmetric, isNegative);
+            isSymmetric, isBlacklisted);
     }
 
     /**
@@ -233,9 +187,292 @@ public final class ToolTransformation extends Object {
                 this.rotationX == other.rotationX && this.rotationY == other.rotationY && this.rotationZ == other.rotationZ &&
                 this.offsetX == other.offsetX && this.offsetY == other.offsetY && this.offsetZ == other.offsetZ &&
                 this.scaleX == other.scaleX && this.scaleY == other.scaleY && this.scaleZ == other.scaleZ &&
-                this.isSymmetric == other.isSymmetric && this.isNegative == other.isNegative;
+                this.isSymmetric == other.isSymmetric && this.isBlacklisted == other.isBlacklisted;
         } else {
             return false;
+        }
+    }
+
+    public static class ToolTransformationBuilder {
+        private @Nullable ComponentChanges changes = null;
+        private float offsetX = 0f;
+        private float offsetY = 0f;
+        private float offsetZ = 0f;
+        private float rotationX = 0f;
+        private float rotationY = 0f;
+        private float rotationZ = 0f;
+        private @Range(from = 0, to = Integer.MAX_VALUE) float scaleX = 1f;
+        private @Range(from = 0, to = Integer.MAX_VALUE) float scaleY = 1f;
+        private @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ = 1f;
+        private boolean isSymmetric = true;
+        private boolean isBlacklisted = false;
+
+        public @NotNull ToolTransformationBuilder componentChanges(@Nullable ComponentChanges componentChanges) {
+            this.changes = componentChanges;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder offsetX(float offsetX) {
+            this.offsetX = offsetX;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder offsetY(float offsetY) {
+            this.offsetY = offsetY;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder offsetZ(float offsetZ) {
+            this.offsetZ = offsetZ;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder rotationX(float rotationX) {
+            this.rotationX = rotationX;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder rotationY(float rotationY) {
+            this.rotationY = rotationY;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder rotationZ(float rotationZ) {
+            this.rotationZ = rotationZ;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder scaleX(float scaleX) {
+            this.scaleX = Math.max(0, Math.min(scaleX, Integer.MAX_VALUE));
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder scaleY(float scaleY) {
+            this.scaleY = Math.max(0, Math.min(scaleY, Integer.MAX_VALUE));
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder scaleZ(float scaleZ) {
+            this.scaleZ = Math.max(0, Math.min(scaleZ, Integer.MAX_VALUE));
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder isSymmetric(boolean isSymmetric) {
+            this.isSymmetric = isSymmetric;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformationBuilder isBlacklisted(boolean isNegative) {
+            this.isBlacklisted = isNegative;
+
+            return this;
+        }
+
+        public @NotNull ToolTransformation build() {
+            return new ToolTransformation(
+                changes,
+                offsetX, offsetY, offsetZ, rotationX, rotationY, rotationZ,
+                scaleX, scaleY, scaleZ,
+                isSymmetric, isBlacklisted);
+        }
+    }
+
+    public static class ToolTransformationTypAdapter extends TypeAdapter<ToolTransformation> {
+        private static final @NotNull String
+            COMPONENTS_KEY = "components",
+            ROTATION_KEY = "rotation",
+            OFFSET_KEY = "offset",
+            SCALE_KEY = "scale",
+            IS_SYMMETRIC_KEY = "is_symmetric",
+            IS_BLACKLISTED = "is_blacklisted",
+            X_KEY = "x",
+            Y_KEY = "y",
+            Z_KEY = "z";
+
+        private static final @NotNull ComponentChangesTypeAdapter COMPONENT_CHANGES_TYPE_ADAPTER = new ComponentChangesTypeAdapter();
+
+        private static void warnUnknown(@NotNull JsonReader jsonReader) throws IOException {
+            BackTools.LOGGER.warn("I have unexpectedly just read {} with type {} did you downgrade?", jsonReader.getPath(), jsonReader.peek());
+        }
+
+        @Override
+        public void write(final @NotNull JsonWriter jsonWriter, final @NotNull ToolTransformation toolTransformation) throws IOException {
+            jsonWriter.beginObject();
+
+            if (toolTransformation.componentChanges != null && !toolTransformation.componentChanges.isEmpty()) {
+                jsonWriter.name(COMPONENTS_KEY);
+
+                //jsonWriter.beginObject();
+                COMPONENT_CHANGES_TYPE_ADAPTER.write(jsonWriter, toolTransformation.componentChanges);
+                //jsonWriter.endObject();
+            }
+
+            if (toolTransformation.offsetX() != 0 || toolTransformation.offsetY() != 0 || toolTransformation.offsetZ() != 0) {
+                jsonWriter.name(OFFSET_KEY);
+                jsonWriter.beginObject();
+
+                if (toolTransformation.offsetX() != 0) {
+                    jsonWriter.name(X_KEY);
+                    jsonWriter.value(toolTransformation.offsetX());
+                }
+
+                if (toolTransformation.offsetY() != 0) {
+                    jsonWriter.name(Y_KEY);
+                    jsonWriter.value(toolTransformation.offsetY());
+                }
+
+                if (toolTransformation.offsetZ() != 0) {
+                    jsonWriter.name(Z_KEY);
+                    jsonWriter.value(toolTransformation.offsetZ());
+                }
+
+                jsonWriter.endObject();
+            }
+
+            if (toolTransformation.rotationX() != 0 || toolTransformation.rotationY() != 0 || toolTransformation.rotationZ() != 0) {
+                jsonWriter.name(ROTATION_KEY);
+                jsonWriter.beginObject();
+
+                if (toolTransformation.rotationX() != 0) {
+                    jsonWriter.name(X_KEY);
+                    jsonWriter.value(toolTransformation.rotationX());
+                }
+
+                if (toolTransformation.rotationY() != 0) {
+                    jsonWriter.name(Y_KEY);
+                    jsonWriter.value(toolTransformation.rotationY());
+                }
+
+                if (toolTransformation.rotationZ() != 0) {
+                    jsonWriter.name(Z_KEY);
+                    jsonWriter.value(toolTransformation.rotationZ());
+                }
+
+                jsonWriter.endObject();
+            }
+
+            if (toolTransformation.scaleX() != 1 || toolTransformation.scaleY() != 1 || toolTransformation.scaleZ() != 1) {
+                jsonWriter.name(SCALE_KEY);
+                jsonWriter.beginObject();
+
+                if (toolTransformation.scaleX() != 1) {
+                    jsonWriter.name(X_KEY);
+                    jsonWriter.value(toolTransformation.scaleX());
+                }
+
+                if (toolTransformation.scaleY() != 1) {
+                    jsonWriter.name(Y_KEY);
+                    jsonWriter.value(toolTransformation.scaleY());
+                }
+
+                if (toolTransformation.scaleZ() != 1) {
+                    jsonWriter.name(Z_KEY);
+                    jsonWriter.value(toolTransformation.scaleZ());
+                }
+
+                jsonWriter.endObject();
+            }
+
+            if (!toolTransformation.isSymmetric()) {
+                jsonWriter.name(IS_SYMMETRIC_KEY);
+                jsonWriter.value(false);
+            }
+
+            if (toolTransformation.isBlacklisted()) {
+                jsonWriter.name(IS_BLACKLISTED);
+                jsonWriter.value(true);
+            }
+
+            jsonWriter.endObject();
+        }
+
+        @Override
+        public @NotNull ToolTransformation read(final @NotNull JsonReader jsonReader) throws IOException {
+            final ToolTransformationBuilder builder = new ToolTransformationBuilder();
+
+            jsonReader.beginObject();
+            while (jsonReader.hasNext()) {
+                switch (jsonReader.nextName()) {
+                    case COMPONENTS_KEY -> builder.componentChanges(COMPONENT_CHANGES_TYPE_ADAPTER.read(jsonReader)); // no begin / end object here, the adapter will take care of this
+                    case OFFSET_KEY -> {
+                        jsonReader.beginObject();
+
+                        while (jsonReader.hasNext()) {
+                            final @NotNull String currentName = jsonReader.nextName();
+                            switch (currentName) {
+                                case X_KEY -> builder.offsetX((float) jsonReader.nextDouble());
+                                case Y_KEY -> builder.offsetY((float) jsonReader.nextDouble());
+                                case Z_KEY -> builder.offsetZ((float) jsonReader.nextDouble());
+                                default -> warnUnknown(jsonReader);
+                            }
+                        }
+
+                        jsonReader.endObject();
+                    }
+                    case ROTATION_KEY -> {
+                        jsonReader.beginObject();
+
+                        while (jsonReader.hasNext()) {
+                            final @NotNull String currentName = jsonReader.nextName();
+                            switch (currentName) {
+                                case X_KEY -> builder.rotationX((float) jsonReader.nextDouble());
+                                case Y_KEY -> builder.rotationY((float) jsonReader.nextDouble());
+                                case Z_KEY -> builder.rotationZ((float) jsonReader.nextDouble());
+                                default -> warnUnknown(jsonReader);
+                            }
+                        }
+
+                        jsonReader.endObject();
+                    }
+                    case SCALE_KEY -> {
+                        jsonReader.beginObject();
+
+                        while (jsonReader.hasNext()) {
+                            final @NotNull String currentName = jsonReader.nextName();
+                            switch (currentName) {
+                                case X_KEY -> builder.scaleX((float) jsonReader.nextDouble());
+                                case Y_KEY -> builder.scaleY((float) jsonReader.nextDouble());
+                                case Z_KEY -> builder.scaleZ((float) jsonReader.nextDouble());
+                                default -> warnUnknown(jsonReader);
+                            }
+                        }
+
+                        jsonReader.endObject();
+                    }
+                    case IS_SYMMETRIC_KEY -> builder.isSymmetric(jsonReader.nextBoolean());
+                    case IS_BLACKLISTED -> builder.isBlacklisted(jsonReader.nextBoolean());
+                    default -> warnUnknown(jsonReader);
+                }
+            }
+            jsonReader.endObject();
+
+            return builder.build();
+        }
+    }
+
+    private static class ComponentChangesTypeAdapter extends TypeAdapter<ComponentChanges> {
+        @Override
+        public void write(final @NotNull JsonWriter out, final @NotNull ComponentChanges value) throws IOException {
+            final Strictness strictnessBefore = out.getStrictness();
+            out.setStrictness(Strictness.LENIENT);
+            Streams.write(ComponentChanges.CODEC.encodeStart(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), value).getOrThrow(IOException::new), out);
+            out.setStrictness(strictnessBefore);
+        }
+
+        @Override
+        public @NotNull ComponentChanges read(final @NotNull JsonReader in) throws IOException {
+            return ComponentChanges.CODEC.decode(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), JsonParser.parseReader(in)).getOrThrow(IOException::new).getFirst();
         }
     }
 }

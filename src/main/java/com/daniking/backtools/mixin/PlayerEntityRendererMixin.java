@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Environment(EnvType.CLIENT)
 @Mixin(PlayerEntityRenderer.class)
-public abstract class PlayerEntityRendererMixin <T extends AbstractClientPlayerEntity, S extends PlayerEntityRenderState, M extends PlayerEntityModel> extends LivingEntityRenderer<T, S, M> {
+public abstract class PlayerEntityRendererMixin<T extends AbstractClientPlayerEntity, S extends PlayerEntityRenderState, M extends PlayerEntityModel> extends LivingEntityRenderer<T, S, M> {
 
     public PlayerEntityRendererMixin(EntityRendererFactory.Context ctx, M model, float shadowRadius) {
         super(ctx, model, shadowRadius);

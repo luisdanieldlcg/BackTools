@@ -51,10 +51,6 @@ processResources {
     }
 }
 
-loom {
-    accessWidenerPath.set(file("src/main/resources/backtools.accesswidener"))
-}
-
 tasks.withType(JavaCompile).configureEach {
     // Minecraft 1.20.5 upwards uses Java 21.
     it.options.release = 21

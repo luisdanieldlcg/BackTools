@@ -1,6 +1,7 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.Utils;
+import com.daniking.backtools.config.ToolTransformation.ToolTransformationBuilder;
 import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -10,8 +11,7 @@ import net.fabricmc.loader.api.VersionParsingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.SequencedMap;
+import java.util.LinkedHashMap;
 
 /**
  * This class holds the config as it gets represented in the config file.
@@ -20,14 +20,6 @@ import java.util.SequencedMap;
  */
 @Environment(EnvType.CLIENT)
 public class BackToolsConfig {
-    public static final @NotNull String
-        ROTATION_KEY = "rotation",
-        OFFSET_KEY = "offset",
-        SCALE_KEY = "scale",
-        IS_SYMMETRIC = "is_symmetric",
-        X_KEY = "x",
-        Y_KEY = "y",
-        Z_KEY = "z";
     public static final Version CURRENT_VERSION;
 
     static {
@@ -49,56 +41,57 @@ public class BackToolsConfig {
             """)
     public @Nullable Version configVersion = CURRENT_VERSION;
     @SerialEntry // todo communicate later matching (i.e. ones with LESS components) overwrite previous ones
-    // note: I'm using Utils.sequencedMapOf() here, since Map.of() doesn't contain order and java didn't feel the need to add SequencedMap.of
-    public SequencedMap<@NotNull String, @NotNull SequencedMap<@NotNull String, ? extends @NotNull Object>> backTools = Utils.sequencedMapOf(
-       "#minecraft:pickaxes", Map.of(),
-        "#minecraft:axes", Map.of(),
-        "#minecraft:shovels", Map.of(),
-        "#minecraft:hoes", Map.of(),
-        "minecraft:fishing_rod", Map.of(
-            ROTATION_KEY, Utils.sequencedMapOf(
-                X_KEY, 180F,
-                Z_KEY, 270F)
-        ),
-        "minecraft:carrot_on_a_stick", Utils.sequencedMapOf(
-            ROTATION_KEY, Map.of(
-                X_KEY, 180F,
-                Z_KEY, 270F)
-        ),
-        "minecraft:warped_fungus_on_a_stick", Utils.sequencedMapOf(
-            ROTATION_KEY, Map.of(
-                X_KEY, 180F,
-                Z_KEY, 270F)
-        ),
-        "minecraft:shears", Map.of(),
-        "#minecraft:swords", Map.of(),
-        "minecraft:mace", Map.of(ROTATION_KEY, Map.of(Z_KEY, 22.5F)),
-        "minecraft:trident", Map.of(),
-        "minecraft:bow", Map.of(ROTATION_KEY, Map.of(Z_KEY, 180F)),
-        "minecraft:crossbow", Map.of(ROTATION_KEY, Map.of(Z_KEY, 270F)),
+    // note: I'm using Utils.linkedHashMapOf() here, since Map.of() doesn't contain order and java didn't feel the need to add SequencedMap.of
+    // also, Googles LinkedTreeMap (the default map gson uses) is NOT a Sequenced Map. So we have to use an specific implementation here!
+    public LinkedHashMap<@NotNull String, @NotNull ToolTransformation> backTools = Utils.linkedHashMapOf(
+        "#minecraft:pickaxes", ToolTransformation.empty(),
+        "#minecraft:axes", ToolTransformation.empty(),
+        "#minecraft:shovels", ToolTransformation.empty(),
+        "#minecraft:hoes", ToolTransformation.empty(),
+        "minecraft:fishing_rod", new ToolTransformationBuilder().
+            rotationX(180F).
+            rotationZ(270F).
+            build(),
+        "minecraft:carrot_on_a_stick", new ToolTransformationBuilder().
+            rotationX(180F).
+            rotationZ(270F).
+            build(),
+        "minecraft:warped_fungus_on_a_stick", new ToolTransformationBuilder().
+            rotationX(180F).
+            rotationZ(270F).
+            build(),
+        "minecraft:shears", ToolTransformation.empty(),
+        "#minecraft:swords", ToolTransformation.empty(),
+        "minecraft:mace", new ToolTransformationBuilder().
+            rotationZ(22.5F).
+            build(),
+        "minecraft:trident", ToolTransformation.empty(),
+        "minecraft:bow", new ToolTransformationBuilder().
+            rotationZ(180F).
+            build(),
+        "minecraft:crossbow", new ToolTransformationBuilder().
+            rotationZ(270F).
+            build(),
         // default shield doesn't look good, way to small
-        "minecraft:shield",Utils.sequencedMapOf(
-            OFFSET_KEY, Utils.sequencedMapOf(
-                X_KEY, 1 / 16F,
-                Y_KEY, -1F / 16F,
-                Z_KEY, -1.91F / 16F),
-           ROTATION_KEY, Utils.sequencedMapOf(
-                Y_KEY, 180F,
-                Z_KEY, 155F),
-            SCALE_KEY, Utils.sequencedMapOf(
-                X_KEY, 1.5F,
-                Y_KEY, 1.5F,
-                Z_KEY, 1.5F),
-            IS_SYMMETRIC, Boolean.FALSE
-        )
+        "minecraft:shield", new ToolTransformationBuilder(). // todo shield ausrichten!
+            offsetX(1 / 16F).
+            offsetY(-1F / 16F).
+            offsetZ(-1.91F / 16F).
+            rotationY(180F).
+            rotationZ(155F).
+            scaleX(1.5F).
+            scaleY(1.5F).
+            scaleZ(1.5F).
+            isSymmetric(false).
+            build()
     );
     @SerialEntry
-    public SequencedMap<@NotNull String, @NotNull SequencedMap<@NotNull String, ? extends @NotNull Object>> beltTools = Utils.sequencedMapOf(
-        "#minecraft:bundles", Map.of(),
-        "minecraft:potion", Map.of(),
-        "minecraft:splash_potion", Map.of(),
-        "minecraft:lingering_potion", Map.of(),
-        "minecraft:lead", Map.of()
+    public LinkedHashMap<@NotNull String, @NotNull ToolTransformation> beltTools = Utils.linkedHashMapOf(
+        "#minecraft:bundles", ToolTransformation.empty(),
+        "minecraft:potion", ToolTransformation.empty(),
+        "minecraft:splash_potion", ToolTransformation.empty(),
+        "minecraft:lingering_potion", ToolTransformation.empty(),
+        "minecraft:lead", ToolTransformation.empty()
     );
     @SerialEntry(comment = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;

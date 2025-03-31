@@ -17,11 +17,12 @@ public class ClientSetup implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // since we depend on item tags, our config can't load until the tags are loaded first.
-        // This happens after all mods are loaded but before the client does its first tick.
-        // after that we have to keep up with all tag changes, maybe what believed to be a shovel in the title screen
+        // since we depend on item tags and Registries like enchantment, our config can't load until they are loaded first.
+        // This happens after the client has joined a world / server, but before the first frame of the world was rendered.
+        // after that we have to keep up with all tag changes, maybe what believed to be a shovel in one world
         // becomes an axe after the next data pack reload (creating / joining worlds / reload command)
-        //ClientLifecycleEvents.CLIENT_STARTED.register(client -> CONFIG_HANDLER.reload());
-        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> CONFIG_HANDLER.reload());
+        CommonLifecycleEvents.TAGS_LOADED.register((registries, client) ->
+            CONFIG_HANDLER.checkWrapperLookUp(registries)
+        );
     }
 }

@@ -1,11 +1,17 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
+import com.daniking.backtools.Utils;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
 import dev.isxander.yacl3.config.v2.api.ConfigClassHandler;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
 import dev.isxander.yacl3.platform.YACLPlatform;
@@ -17,9 +23,12 @@ import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.component.ComponentChanges;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.BuiltinRegistries;
+import net.minecraft.registry.*;
 import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.entry.RegistryEntryList;
+import net.minecraft.registry.tag.TagKey;
 import net.minecraft.resource.featuretoggle.FeatureFlags;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,8 +38,6 @@ import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * This class pareses and interprets the values loaded by the ConfigClassHandler and contained raw in
@@ -38,10 +45,15 @@ import java.util.regex.Pattern;
  */
 @Environment(EnvType.CLIENT)
 public class ConfigHandler {
-    private final static @NotNull Pattern NEGATIVE_PATTERN = Pattern.compile("^\\s*?(?<isNegative>-)?\\s*?(?<data>.*)\\s*?$");
-    private final static @NotNull DateFormat COPY_DATE_FORMAT = new SimpleDateFormat("'BackTools_backup_'yyyy-MM-dd-HH-mm-ss'.json5'");
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = Collections.emptySortedMap();
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Collections.emptySortedMap();
+    private static final @NotNull DateFormat COPY_DATE_FORMAT = new SimpleDateFormat("'BackTools_backup_'yyyy-MM-dd-HH-mm-ss'.json5'");
+    private static final DynamicCommandExceptionType INVALID_ITEM_ID_EXCEPTION = new DynamicCommandExceptionType(
+        id -> Text.stringifiedTranslatable("argument.item.id.invalid", id)
+    );
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = Utils.linkedHashMapOf();
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Utils.linkedHashMapOf();
+
+    private @NotNull RegistryWrapper.WrapperLookup wrapperLookup = CommandRegistryAccess.of(BuiltinRegistries.createWrapperLookup(), FeatureFlags.FEATURE_MANAGER.getFeatureSet());
+    private @NotNull DynamicOps<JsonElement> dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
 
     private final @NotNull ConfigClassHandler<BackToolsConfig> yaclHandler = ConfigClassHandler.createBuilder(BackToolsConfig.class).
         id(Identifier.of(BackTools.modID, "general_config")).
@@ -63,13 +75,10 @@ public class ConfigHandler {
                             throw new IOException(e);
                         }
                     }
-                })
-            ).
-            setJson5(true).
+                }).registerTypeAdapter(ToolTransformation.class, new ToolTransformation.ToolTransformationTypAdapter())
+            ).setJson5(true).
             build()).
         build();
-
-    final @NotNull ItemTagStringReader itemTagStringReader = new ItemTagStringReader(CommandRegistryAccess.of(BuiltinRegistries.createWrapperLookup(), FeatureFlags.FEATURE_MANAGER.getFeatureSet()));
 
     public boolean isItemEnabled(final @NotNull ItemStack itemStack) {
         return getBackOrientation(itemStack) != null || getBeltOrientation(itemStack) != null;
@@ -85,9 +94,9 @@ public class ConfigHandler {
         }
 
         ToolTransformation positiveMatch = null;
-        for (final @NotNull ToolTransformation toolTransformation : toolTransformations){
-            if (toolTransformation.matches(componentChanges)){
-                if (toolTransformation.isNegative()) {
+        for (final @NotNull ToolTransformation toolTransformation : toolTransformations) {
+            if (toolTransformation.matches(componentChanges)) {
+                if (toolTransformation.isBlacklisted()) {
                     return null;
                 } else {
                     positiveMatch = toolTransformation;
@@ -107,10 +116,10 @@ public class ConfigHandler {
             return null;
         }
 
-            ToolTransformation positiveMatch = null;
-        for (final @NotNull ToolTransformation toolTransformation : toolTransformations){
-            if (toolTransformation.matches(componentChanges)){
-                if (toolTransformation.isNegative()) {
+        ToolTransformation positiveMatch = null;
+        for (final @NotNull ToolTransformation toolTransformation : toolTransformations) {
+            if (toolTransformation.matches(componentChanges)) {
+                if (toolTransformation.isBlacklisted()) {
                     return null;
                 } else {
                     positiveMatch = toolTransformation;
@@ -129,7 +138,15 @@ public class ConfigHandler {
         return yaclHandler.instance().renderWithCapes;
     }
 
-    public void reload() {
+    public void checkWrapperLookUp(final @NotNull RegistryWrapper.WrapperLookup wrapperLookup) {
+        if (this.wrapperLookup != wrapperLookup) {
+            this.dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
+            this.wrapperLookup = wrapperLookup;
+            reload();
+        }
+    }
+
+    private void reload() {
         yaclHandler.load();
 
         final @Nullable Version configVersion = yaclHandler.instance().configVersion;
@@ -147,51 +164,50 @@ public class ConfigHandler {
             // data fixer upper config here
         }
 
+        final @NotNull RegistryWrapper.Impl<Item> itemRegistry = CommandRegistryAccess.of(this.wrapperLookup, FeatureFlags.FEATURE_MANAGER.getFeatureSet()).getOrThrow(RegistryKeys.ITEM);
+
         // parse configured Items
-        backConfigurations = processToolConfig(yaclHandler.instance().backTools);
-        beltConfigurations = processToolConfig(yaclHandler.instance().beltTools);
+        backConfigurations = processToolConfig(yaclHandler.instance().backTools, itemRegistry);
+        beltConfigurations = processToolConfig(yaclHandler.instance().beltTools, itemRegistry);
 
         saveConfig();
     }
 
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull String, ? extends @NotNull Map<@NotNull String, ? extends @NotNull Object>> rawMap) {
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull String, @NotNull ToolTransformation> rawMap, final @NotNull RegistryWrapper.Impl<Item> itemRegistry) {
         final @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> resultMap = new LinkedHashMap<>();
 
-        for (Map.Entry<@NotNull String, ? extends @NotNull Map<@NotNull String, ? extends @NotNull Object>> configEntry : rawMap.entrySet()) {
-            final @NotNull Matcher matcher = NEGATIVE_PATTERN.matcher(configEntry.getKey());
+        for (Map.Entry<@NotNull String, @NotNull ToolTransformation> configEntry : rawMap.entrySet()) {
+            try {
+                for (RegistryEntry<Item> entryItemResult : readItems(configEntry.getKey(), itemRegistry)) {
+                    final @NotNull Item item = entryItemResult.value().asItem();
 
-            if (matcher.matches()) {
-                try {
-                    final @NotNull ItemTagStringReader.ItemResult itemResult = itemTagStringReader.parse(matcher.group("data"));
+                    @Nullable SequencedSet<ToolTransformation> set = resultMap.get(item);
 
-                    for (RegistryEntry<Item> entryItemResult : itemResult.items()) {
-                        final @NotNull Item item = entryItemResult.value().asItem();
-
-                        final @NotNull SequencedSet<ToolTransformation> set = resultMap.computeIfAbsent(item, ignored -> new LinkedHashSet<>());
-
-                        final @NotNull ToolTransformation newTransformation = ToolTransformation.deserialize(itemResult.components(), matcher.group("isNegative") != null, configEntry.getValue());
-
+                    if (set == null) {
+                        set = new LinkedHashSet<>();
+                        resultMap.put(item, set);
+                    } else {
                         // remove duplicates, this does the work for negated items as well.
-                        set.removeIf(newTransformation::matches);
-                        set.add(newTransformation);
+                        set.removeIf(other -> configEntry.getValue().matches(other));
                     }
 
-                } catch (CommandSyntaxException e) {
-                    BackTools.LOGGER.error("Could not load config entry {}. Skipping!", configEntry.getKey(), e);
+                    set.add(configEntry.getValue());
                 }
-            } else {
-                BackTools.LOGGER.error("Config entry {} has an invalid format! Skipping!", configEntry.getKey());
+
+            } catch (CommandSyntaxException e) {
+                BackTools.LOGGER.error("Could not load config entry {}. Skipping!", configEntry.getKey(), e);
             }
         }
 
         return resultMap;
     }
 
-    public void saveConfig () {
+    public void saveConfig() {
         yaclHandler.instance().configVersion = BackToolsConfig.CURRENT_VERSION;
         yaclHandler.save();
     }
 
+    /*
     public @NotNull SequencedSet<ItemStack> fetchItemStacks (final @NotNull String str) {
         SequencedSet<ItemStack> result = new LinkedHashSet<>();
 
@@ -211,5 +227,42 @@ public class ConfigHandler {
         }
 
         return result;
+    }
+*/
+    private @NotNull SequencedSet<@NotNull RegistryEntry<@NotNull Item>> readItems(final @NotNull String arg, final @NotNull RegistryWrapper.Impl<Item> itemRegistry) throws CommandSyntaxException {
+        final @NotNull StringReader reader = new StringReader(arg);
+        final int indexBefore = reader.getCursor();
+        final SequencedSet<RegistryEntry<Item>> itemResult = new LinkedHashSet<>();
+
+        if (reader.canRead() && reader.peek() == '#') {
+            try {
+                reader.skip();
+                final Identifier identifier = Identifier.fromCommandInput(reader);
+
+                final RegistryEntryList.Named<Item> registryEntries = Registries.ITEM.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> { // alternative ItemTagStringReader.this.itemRegistry
+                    reader.setCursor(indexBefore);
+                    return INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
+                });
+
+                for (RegistryEntry<Item> item : registryEntries) {
+                    itemResult.add(item);
+                }
+            } catch (CommandSyntaxException ex) {
+                reader.setCursor(indexBefore);
+                throw ex;
+            }
+        } else {
+            Identifier identifier = Identifier.fromCommandInput(reader);
+            itemResult.add(itemRegistry.getOptional(RegistryKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
+                reader.setCursor(indexBefore);
+                return INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
+            }));
+        }
+
+        return itemResult;
+    }
+
+    public @NotNull DynamicOps<JsonElement> getDynamicJSONOps() {
+        return dynamicJSONOps;
     }
 }

@@ -1,9 +1,12 @@
 package com.daniking.backtools;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+@Environment(EnvType.CLIENT)
 public class HeldItemContext {
     public ItemEntity droppedEntity = null;
     public ItemStack previousMain = ItemStack.EMPTY;
