@@ -21,9 +21,9 @@ import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends PlayerHeldItemFeatureRenderer<PlayerEntityRenderState, M> {
-    public ItemStack mainStack = ItemStack.EMPTY;
-    public ItemStack offStack = ItemStack.EMPTY;
-    public Arm mainArm = Arm.RIGHT;
+    private @NotNull ItemStack mainStack = ItemStack.EMPTY;
+    private @NotNull ItemStack offStack = ItemStack.EMPTY;
+    private @NotNull Arm mainArm = Arm.RIGHT;
 
     @Contract(pure = true)
     public BackToolFeatureRenderer(final @NotNull FeatureRendererContext<PlayerEntityRenderState, M> context) {

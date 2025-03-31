@@ -38,7 +38,6 @@ public class BackTools implements ModInitializer {
                 modID = metadata.getId();
                 modName = metadata.getName();
                 version = metadata.getVersion();
-
             } else {
                 LOGGER.error("Could find load own mod metadata. Falling back to default values, let's hope they fit!");
             }

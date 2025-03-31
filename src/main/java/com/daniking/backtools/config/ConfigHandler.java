@@ -40,7 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
- * This class pareses and interprets the values loaded by the ConfigClassHandler and contained raw in
+ * This class interprets the values loaded by the ConfigClassHandler and contained raw in
  * the {@link BackToolsConfig} class.
  */
 @Environment(EnvType.CLIENT)

@@ -43,9 +43,9 @@ public abstract class ClientWorldMixin {
     // B picks it up at the same client tick.
     // Now we have a high chance for still rendering the item on A's back.
     // However, because how this mod works and because it's just supposed to add some ambiance, not reliable information,
-    // and it's not like this couldn't happen before.
+    // (and it's not like this couldn't happen before my changes), I think this if fine enough.
     @Unique
-    private final @NotNull Map<@NotNull UUID, @NotNull Collection<@NotNull HeldItemContext>> test = new HashMap<>(8);
+    private final @NotNull Map<@NotNull UUID, @NotNull Collection<@NotNull HeldItemContext>> thrownItems = new HashMap<>(8);
 
     @Shadow
     protected abstract EntityLookup<Entity> getEntityLookup();
@@ -100,7 +100,7 @@ public abstract class ClientWorldMixin {
                 });
 
                 if (!contexts.isEmpty()) {
-                    test.put(entity.getUuid(), contexts);
+                    thrownItems.put(itemEntity.getUuid(), contexts);
                 }
             }
         }
@@ -110,7 +110,7 @@ public abstract class ClientWorldMixin {
     private void onEntityRemove(final int entityId, final Entity.RemovalReason removalReason, final CallbackInfo ci) {
         Entity entity = this.getEntityLookup().get(entityId);
         if (entity instanceof ItemEntity && entity.getWorld().isClient) {
-            final @Nullable Collection<@NotNull HeldItemContext> contexts = test.remove(entity.getUuid());
+            final @Nullable Collection<@NotNull HeldItemContext> contexts = thrownItems.remove(entity.getUuid());
 
             if (contexts != null) {
                 contexts.forEach(heldItemContext -> heldItemContext.droppedEntity = null);
