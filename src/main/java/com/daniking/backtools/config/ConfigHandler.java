@@ -2,7 +2,6 @@ package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.Utils;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
@@ -59,7 +58,6 @@ public class ConfigHandler {
         id(Identifier.of(BackTools.modID, "general_config")).
         serializer(config -> GsonConfigSerializerBuilder.create(config).
             setPath(YACLPlatform.getConfigDir().resolve("BackTools.json5")).
-            appendGsonBuilder(GsonBuilder::setPrettyPrinting).
             appendGsonBuilder(gsonBuilder ->
                 gsonBuilder.registerTypeAdapter(Version.class, new TypeAdapter<Version>() {
                     @Override

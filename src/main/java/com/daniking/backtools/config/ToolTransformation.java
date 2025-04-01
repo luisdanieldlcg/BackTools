@@ -27,6 +27,14 @@ public class ToolTransformation extends Object {
     private final static ToolTransformation EMPTY = new ToolTransformationBuilder().build();
 
     private final @Nullable ComponentChanges componentChanges;
+    /**
+     * Sometimes the component changes above can't get deserialized.
+     * And that's not even an error per se, since data packs can make some components (in)valid.
+     * If the pack is missing, we can't deserialize the components.
+     * So in order to not lose data if the config was reloaded in a world without the datapack,
+     * we just keep the parsed JsonElement, and write it back to config as is,
+     * while marking this ToolTransformation as invalid, so it doesn't get ever applied.
+     */
     private final transient @Nullable JsonElement invalidChanges;
     private final float rotationX;
     private final float rotationY;
@@ -443,16 +451,13 @@ public class ToolTransformation extends Object {
                         // no begin / end object here, the parser will take care of this
                         final JsonElement element = JsonParser.parseReader(jsonReader);
 
-                        try {
-                            builder.componentChanges(
-                                ComponentChanges.CODEC.decode(BackTools.getConfigHandler().getDynamicJSONOps(), element).
-                                    getOrThrow(IOException::new).getFirst()
-                            );
-                        } catch (IOException e) {
-                            BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context. This may happen if a data pack is missing or it was misconfigured. {}", e.getMessage());
+                        ComponentChanges.CODEC.decode(BackTools.getConfigHandler().getDynamicJSONOps(), element).
+                            ifSuccess(succPair -> builder.componentChanges(succPair.getFirst())
+                            ).ifError(errPair -> {
+                                BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context. This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
 
-                            builder.invalidComponentChanges(element);
-                        }
+                                builder.invalidComponentChanges(element);
+                            });
                     }
                     case OFFSET_KEY -> {
                         jsonReader.beginObject();
