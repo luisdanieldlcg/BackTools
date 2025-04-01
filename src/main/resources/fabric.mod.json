@@ -29,7 +29,7 @@
   "depends": {
     "fabricloader": "*",
     "fabric": "*",
-    "minecraft": "*",
+    "minecraft": "=${mcVersion}",
     "yet_another_config_lib_v3": ">=${yaclVersion}"
   }
 }

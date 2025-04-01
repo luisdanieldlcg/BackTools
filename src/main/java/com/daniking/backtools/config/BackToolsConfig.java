@@ -73,7 +73,7 @@ public class BackToolsConfig {
             rotationZ(270F).
             build(),
         // default shield doesn't look good, way to small
-        "minecraft:shield", new ToolTransformationBuilder(). // todo shield ausrichten!
+        "minecraft:shield", new ToolTransformationBuilder().
             offsetX(1 / 16F).
             offsetY(-1F / 16F).
             offsetZ(-1.91F / 16F).
