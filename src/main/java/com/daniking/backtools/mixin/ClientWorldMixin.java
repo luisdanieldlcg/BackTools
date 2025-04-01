@@ -1,6 +1,6 @@
 package com.daniking.backtools.mixin;
 
-import com.daniking.backtools.ClientSetup;
+import com.daniking.backtools.BackTools;
 import com.daniking.backtools.HeldItemContext;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
@@ -64,7 +64,7 @@ public abstract class ClientWorldMixin {
         int seaLevel,
         CallbackInfo ci) {
 
-        ClientSetup.HELD_TOOLS.clear();
+        BackTools.HELD_TOOLS.clear();
     }
 
     @Inject(at = @At("HEAD"), method = "addEntity")
@@ -87,7 +87,7 @@ public abstract class ClientWorldMixin {
                     // keeping track on order and hoping the connection to the server is perfect.
                     // seems like way overkill for me.
                     if (player instanceof AbstractClientPlayerEntity) {
-                        final @Nullable HeldItemContext heldItemContext = ClientSetup.HELD_TOOLS.get(player.getNameForScoreboard());
+                        final @Nullable HeldItemContext heldItemContext = BackTools.HELD_TOOLS.get(player.getNameForScoreboard());
 
                         if (heldItemContext != null) {
                             heldItemContext.droppedEntity = itemEntity;

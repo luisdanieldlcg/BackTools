@@ -18,9 +18,6 @@
     "main": [
       "com.daniking.backtools.BackTools"
     ],
-    "client": [
-      "com.daniking.backtools.ClientSetup"
-    ],
     "modmenu": [
       "com.daniking.backtools.config.ModMenuIntegration"
     ]

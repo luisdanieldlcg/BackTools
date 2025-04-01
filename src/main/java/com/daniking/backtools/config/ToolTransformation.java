@@ -1,7 +1,6 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
-import com.daniking.backtools.ClientSetup;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
@@ -350,7 +349,7 @@ public class ToolTransformation extends Object {
 
                 final Strictness strictnessBefore = jsonWriter.getStrictness();
                 jsonWriter.setStrictness(Strictness.LENIENT);
-                Streams.write(ComponentChanges.CODEC.encodeStart(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), toolTransformation.componentChanges).getOrThrow(IOException::new), jsonWriter);
+                Streams.write(ComponentChanges.CODEC.encodeStart(BackTools.getConfigHandler().getDynamicJSONOps(), toolTransformation.componentChanges).getOrThrow(IOException::new), jsonWriter);
                 jsonWriter.setStrictness(strictnessBefore);
             }
 
@@ -446,7 +445,7 @@ public class ToolTransformation extends Object {
 
                         try {
                             builder.componentChanges(
-                                ComponentChanges.CODEC.decode(ClientSetup.CONFIG_HANDLER.getDynamicJSONOps(), element).
+                                ComponentChanges.CODEC.decode(BackTools.getConfigHandler().getDynamicJSONOps(), element).
                                     getOrThrow(IOException::new).getFirst()
                             );
                         } catch (IOException e) {

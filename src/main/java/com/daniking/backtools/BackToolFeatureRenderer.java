@@ -33,18 +33,18 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
     @Override
     public void render(final @NotNull MatrixStack matrixStack, final @NotNull VertexConsumerProvider vertexConsumerProvider, final int light,
                        final @NotNull PlayerEntityRenderState playerRenderState, final float limbAngle, final float limbDistance) {
-        final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || ClientSetup.CONFIG_HANDLER.shouldRenderWithCapes()) &&
+        final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || BackTools.getConfigHandler().shouldRenderWithCapes()) &&
             playerRenderState.sleepingDirection == null;
 
-        if (!playerRenderState.invisible && ClientSetup.HELD_TOOLS.containsKey(playerRenderState.name)) {
-            final HeldItemContext ctx = ClientSetup.HELD_TOOLS.get(playerRenderState.name);
+        if (!playerRenderState.invisible && BackTools.HELD_TOOLS.containsKey(playerRenderState.name)) {
+            final HeldItemContext ctx = BackTools.HELD_TOOLS.get(playerRenderState.name);
 
             if (ctx.droppedEntity != null) {
                 return;
             }
             this.setRenders(ctx.previousMain, ctx.previousOff, playerRenderState.mainArm);
             this.getContextModel().body.applyTransform(matrixStack);
-            final float age = ClientSetup.CONFIG_HANDLER.isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
+            final float age = BackTools.getConfigHandler().isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
             final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
 
             renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light, shouldRenderBack); // Mainhand stack
@@ -61,7 +61,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
         if (!stack.isEmpty()) {
             matrices.push();
 
-            @Nullable ToolTransformation toolTransformation = ClientSetup.CONFIG_HANDLER.getBeltOrientation(stack);
+            @Nullable ToolTransformation toolTransformation = BackTools.getConfigHandler().getBeltOrientation(stack);
             if (toolTransformation != null) { // belt
 
                 if (isInverted) {
@@ -92,7 +92,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
                 final float scale = 0.6F;
                 matrices.scale(scale * toolTransformation.scaleX(), scale * toolTransformation.scaleY(), scale * toolTransformation.scaleZ());
             } else if (shouldRenderBack) {
-                toolTransformation = ClientSetup.CONFIG_HANDLER.getBackOrientation(stack);
+                toolTransformation = BackTools.getConfigHandler().getBackOrientation(stack);
 
                 if (toolTransformation != null) { // back
 

@@ -42,14 +42,14 @@ public class HeldItemContext {
             previousOff = activeOff;
             activeOff = ItemStack.EMPTY;
         }
-        if (ClientSetup.CONFIG_HANDLER.isItemEnabled(main)) {
+        if (BackTools.getConfigHandler().isItemEnabled(main)) {
             activeMain = main;
             if (ItemStack.areItemsAndComponentsEqual(activeMain, activeOff)) {
                 activeOff = ItemStack.EMPTY;
             }
         }
 
-        if (ClientSetup.CONFIG_HANDLER.isItemEnabled(off)) {
+        if (BackTools.getConfigHandler().isItemEnabled(off)) {
             activeOff = off;
             if (ItemStack.areItemsAndComponentsEqual(activeOff, activeMain)) {
                 activeMain = ItemStack.EMPTY;
