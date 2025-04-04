@@ -8,6 +8,8 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.SemanticVersion;
 import net.fabricmc.loader.api.Version;
 import net.fabricmc.loader.api.VersionParsingException;
+import net.minecraft.item.Items;
+import net.minecraft.registry.tag.ItemTags;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,37 +45,37 @@ public class BackToolsConfig {
     @SerialEntry // todo communicate later matching (i.e. ones with LESS components) overwrite previous ones
     // note: I'm using Utils.linkedHashMapOf() here, since Map.of() doesn't contain order and java didn't feel the need to add SequencedMap.of
     // also, Googles LinkedTreeMap (the default map gson uses) is NOT a Sequenced Map. So we have to use an specific implementation here!
-    public LinkedHashMap<@NotNull String, @NotNull ToolTransformation> backTools = Utils.linkedHashMapOf(
-        "#minecraft:pickaxes", ToolTransformation.empty(),
-        "#minecraft:axes", ToolTransformation.empty(),
-        "#minecraft:shovels", ToolTransformation.empty(),
-        "#minecraft:hoes", ToolTransformation.empty(),
-        "minecraft:fishing_rod", new ToolTransformationBuilder().
+    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> backTools = Utils.linkedHashMapOf(
+        AItemLike.fromTag(ItemTags.PICKAXES), ToolTransformation.empty(),
+        AItemLike.fromTag(ItemTags.AXES), ToolTransformation.empty(),
+        AItemLike.fromTag(ItemTags.SHOVELS), ToolTransformation.empty(),
+        AItemLike.fromTag(ItemTags.HOES), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.FISHING_ROD), new ToolTransformationBuilder().
             rotationX(180F).
             rotationZ(270F).
             build(),
-        "minecraft:carrot_on_a_stick", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.CARROT_ON_A_STICK), new ToolTransformationBuilder().
             rotationX(180F).
             rotationZ(270F).
             build(),
-        "minecraft:warped_fungus_on_a_stick", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.WARPED_FUNGUS_ON_A_STICK), new ToolTransformationBuilder().
             rotationX(180F).
             rotationZ(270F).
             build(),
-        "minecraft:shears", ToolTransformation.empty(),
-        "#minecraft:swords", ToolTransformation.empty(),
-        "minecraft:mace", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.SHEARS), ToolTransformation.empty(),
+        AItemLike.fromTag(ItemTags.SWORDS), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.MACE), new ToolTransformationBuilder().
             rotationZ(22.5F).
             build(),
-        "minecraft:trident", ToolTransformation.empty(),
-        "minecraft:bow", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.TRIDENT), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.BOW), new ToolTransformationBuilder().
             rotationZ(180F).
             build(),
-        "minecraft:crossbow", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.CROSSBOW), new ToolTransformationBuilder().
             rotationZ(270F).
             build(),
         // default shield doesn't look good, way to small
-        "minecraft:shield", new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.SHIELD), new ToolTransformationBuilder().
             offsetX(1 / 16F).
             offsetY(-1F / 16F).
             offsetZ(-1.91F / 16F).
@@ -86,12 +88,12 @@ public class BackToolsConfig {
             build()
     );
     @SerialEntry
-    public LinkedHashMap<@NotNull String, @NotNull ToolTransformation> beltTools = Utils.linkedHashMapOf(
-        "#minecraft:bundles", ToolTransformation.empty(),
-        "minecraft:potion", ToolTransformation.empty(),
-        "minecraft:splash_potion", ToolTransformation.empty(),
-        "minecraft:lingering_potion", ToolTransformation.empty(),
-        "minecraft:lead", ToolTransformation.empty()
+    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> beltTools = Utils.linkedHashMapOf(
+        AItemLike.fromTag(ItemTags.BUNDLES), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.POTION), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.SPLASH_POTION), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.LINGERING_POTION), ToolTransformation.empty(),
+        AItemLike.fromItem(Items.LEAD), ToolTransformation.empty()
     );
     @SerialEntry(comment = "Get in swimming position and your tools go \"Weeee\"")
     public boolean helicopterMode = false;

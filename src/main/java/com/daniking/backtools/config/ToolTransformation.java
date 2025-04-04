@@ -25,6 +25,7 @@ import java.util.Optional;
 @Environment(EnvType.CLIENT)
 public class ToolTransformation extends Object {
     private final static ToolTransformation EMPTY = new ToolTransformationBuilder().build();
+    private final static ToolTransformationTypAdapter ADAPTER_INSTANCE = new ToolTransformationTypAdapter();
 
     private final @Nullable ComponentChanges componentChanges;
     /**
@@ -88,7 +89,11 @@ public class ToolTransformation extends Object {
         return EMPTY;
     }
 
-    public boolean isInvalid () {
+    public static @NotNull ToolTransformationTypAdapter getTypeAdapter() {
+        return ADAPTER_INSTANCE;
+    }
+
+    public boolean isInvalid() {
         return invalidChanges != null;
     }
 
@@ -177,6 +182,23 @@ public class ToolTransformation extends Object {
         return isBlacklisted;
     }
 
+    public @NotNull ToolTransformationBuilder toBuilder() {
+        return new ToolTransformationBuilder().
+            invalidComponentChanges(this.invalidChanges).
+            componentChanges(this.componentChanges).
+            offsetX(this.offsetX).
+            offsetY(this.offsetY).
+            offsetZ(this.offsetZ).
+            rotationX(this.rotationX).
+            rotationY(this.rotationY).
+            rotationZ(this.rotationZ).
+            scaleX(this.scaleX).
+            scaleY(this.scaleY).
+            scaleZ(this.scaleZ).
+            isSymmetric(this.isSymmetric).
+            isBlacklisted(this.isBlacklisted);
+    }
+
     @Override
     public @NotNull String toString() {
         return "ToolTransformation[" +
@@ -227,6 +249,7 @@ public class ToolTransformation extends Object {
 
     public static class ToolTransformationBuilder {
         private @Nullable ComponentChanges changes = null;
+        private @Nullable JsonElement invalidComponentChanges = null;
         private float offsetX = 0f;
         private float offsetY = 0f;
         private float offsetZ = 0f;
@@ -238,7 +261,50 @@ public class ToolTransformation extends Object {
         private @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ = 1f;
         private boolean isSymmetric = true;
         private boolean isBlacklisted = false;
-        private @Nullable JsonElement invalidComponentChanges = null;
+
+        public float rotationX() {
+            return rotationX;
+        }
+
+        public float rotationY() {
+            return rotationY;
+        }
+
+        public float rotationZ() {
+            return rotationZ;
+        }
+
+        public float offsetX() {
+            return offsetX;
+        }
+
+        public float offsetY() {
+            return offsetY;
+        }
+
+        public float offsetZ() {
+            return offsetZ;
+        }
+
+        public @Range(from = 0, to = Integer.MAX_VALUE) float scaleX() {
+            return scaleX;
+        }
+
+        public @Range(from = 0, to = Integer.MAX_VALUE) float scaleY() {
+            return scaleY;
+        }
+
+        public @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ() {
+            return scaleZ;
+        }
+
+        public boolean isSymmetric() {
+            return isSymmetric;
+        }
+
+        public boolean isBlacklisted() {
+            return isBlacklisted;
+        }
 
         public @NotNull ToolTransformationBuilder componentChanges(@Nullable ComponentChanges componentChanges) {
             this.changes = componentChanges;
@@ -246,9 +312,11 @@ public class ToolTransformation extends Object {
             return this;
         }
 
-        protected @NotNull ToolTransformationBuilder invalidComponentChanges (@NotNull JsonElement invalidComponentChanges) {
-            this.changes = null;
-            this.invalidComponentChanges = invalidComponentChanges;
+        protected @NotNull ToolTransformationBuilder invalidComponentChanges(@Nullable JsonElement invalidComponentChanges) {
+            if (invalidComponentChanges != null) {
+                this.changes = null;
+                this.invalidComponentChanges = invalidComponentChanges;
+            }
 
             return this;
         }
@@ -313,8 +381,8 @@ public class ToolTransformation extends Object {
             return this;
         }
 
-        public @NotNull ToolTransformationBuilder isBlacklisted(boolean isNegative) {
-            this.isBlacklisted = isNegative;
+        public @NotNull ToolTransformationBuilder isBlacklisted(boolean isBlacklisted) {
+            this.isBlacklisted = isBlacklisted;
 
             return this;
         }

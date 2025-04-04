@@ -1,11 +1,13 @@
-package com.daniking.backtools.config;
+package com.daniking.backtools.config.menu;
 
 import com.daniking.backtools.BackTools;
+import com.daniking.backtools.config.AItemLike;
+import com.daniking.backtools.config.menu.yacl.ItemTagControllerBuilder;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.ItemControllerBuilder;
-import dev.isxander.yacl3.api.controller.StringControllerBuilder;
+import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.item.Item;
@@ -13,18 +15,17 @@ import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Environment(value = EnvType.CLIENT)
 public class ModMenuIntegration implements ModMenuApi {
     //LanguageOptionsScreen;
     private Item test = Items.STONE;
-    private List<String> testList = Arrays.asList("test1");
-    private List<Item> itemTestList = Arrays.asList(Items.LIGHT);
+    private List<AItemLike> list2 = new ArrayList<>();
 
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
+        list2.add(AItemLike.fromItem(Items.GOLD_BLOCK));
 
         return parent -> YetAnotherConfigLib.createBuilder().
             title(Text.literal(BackTools.class.getName())).
@@ -45,44 +46,32 @@ public class ModMenuIntegration implements ModMenuApi {
                                 BackTools.LOGGER.info("consumed item: {}", item.getName().toString());
                             }
                         ).controller(ItemControllerBuilder::create).
-                        build()).
-                    /*option(Option.<Map<?,?>>createBuilder().
-                        binding().
+                        build()
+                    ).option(Option.<Boolean>createBuilder().
+                        binding(
+                            true,
+                            () -> {
+                                return false;
+                            }, bool -> BackTools.LOGGER.info("aaaa -> " + bool)
+                        ).
                         controller(TickBoxControllerBuilder::create).
-                        build()).*/
-                        build()).
-                group(ListOption.<String>createBuilder(). // add initial value here --> null
-                    name(Text.literal("list test")).
-                    initial(() -> "test3").
-                    binding(
-                        new ArrayList<>(),
+                        build()
+                    ).build()).
+                group(ListOption.<AItemLike>createBuilder().
+                    initial(() -> AItemLike.fromItem(Items.DIAMOND_BLOCK)).
+                    controller(ItemTagControllerBuilder::create).
+                    binding(new ArrayList<>(),
                         () -> {
-                            BackTools.LOGGER.info("supplied list {}", testList);
-                            return testList;
+                            BackTools.LOGGER.info("supplied reference list {} -heureka!", list2);
+                            return list2;
                         },
                         list -> {
-                            testList = list;
-                            BackTools.LOGGER.info("consumed list: {}", list);
+                            list2 = list;
+                            BackTools.LOGGER.info("consumed reference list {} -heureka! ", list);
                         }).
-                    controller(StringControllerBuilder::create).
-                    //customController(t -> StringControllerBuilder.create(t).build()).
-                        build()).
-                group(ListOption.<Item>createBuilder(). // add initial value here --> null
-                    name(Text.literal("list test")).
-                    initial(() -> Items.DIAMOND_BLOCK).
-                    binding(
-                        new ArrayList<>(),
-                        () -> {
-                            BackTools.LOGGER.info("supplied list2 {}", itemTestList);
-                            return itemTestList;
-                        },
-                        list -> {
-                            itemTestList = list;
-                            BackTools.LOGGER.info("consumed list2: {}", list);
-                        }).
-                    controller(ItemControllerBuilder::create).
                     build()).
                 build()).
+            save(() -> BackTools.LOGGER.info("saving: " + list2)).
             build().generateScreen(parent);
     }
 }

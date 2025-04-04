@@ -37,6 +37,9 @@ import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class interprets the values loaded by the ConfigClassHandler and contained raw in
@@ -48,6 +51,7 @@ public class ConfigHandler {
     private static final DynamicCommandExceptionType INVALID_ITEM_ID_EXCEPTION = new DynamicCommandExceptionType(
         id -> Text.stringifiedTranslatable("argument.item.id.invalid", id)
     );
+    private final static @NotNull Pattern NAMESPACED_PATTERN = Pattern.compile("^(?<isTag>#)?(?:(?<namespace>[_\\-a-z0-9.]*):)?(?<path>[_\\-a-z0-9/.]*)$");
     private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = Utils.linkedHashMapOf();
     private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Utils.linkedHashMapOf();
 
@@ -73,7 +77,8 @@ public class ConfigHandler {
                             throw new IOException(e);
                         }
                     }
-                }).registerTypeAdapter(ToolTransformation.class, new ToolTransformation.ToolTransformationTypAdapter())
+                }).registerTypeAdapter(ToolTransformation.class, ToolTransformation.getTypeAdapter()).
+                   registerTypeAdapter(AItemLike.class, AItemLike.getTypeAdapter())
             ).setJson5(true).
             build()).
         build();
@@ -144,7 +149,7 @@ public class ConfigHandler {
         }
     }
 
-    private void reload() {
+    public void reload() { // todo use in menu
         yaclHandler.load();
 
         final @Nullable Version configVersion = yaclHandler.instance().configVersion;
@@ -162,42 +167,33 @@ public class ConfigHandler {
             // data fixer upper config here
         }
 
-        final @NotNull RegistryWrapper.Impl<Item> itemRegistry = CommandRegistryAccess.of(this.wrapperLookup, FeatureFlags.FEATURE_MANAGER.getFeatureSet()).getOrThrow(RegistryKeys.ITEM);
-
         // parse configured Items
-        backConfigurations = processToolConfig(yaclHandler.instance().backTools, itemRegistry);
-        beltConfigurations = processToolConfig(yaclHandler.instance().beltTools, itemRegistry);
+        backConfigurations = processToolConfig(yaclHandler.instance().backTools);
+        beltConfigurations = processToolConfig(yaclHandler.instance().beltTools);
 
         saveConfig();
     }
 
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull String, @NotNull ToolTransformation> rawMap, final @NotNull RegistryWrapper.Impl<Item> itemRegistry) {
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull AItemLike, @NotNull ToolTransformation> rawMap) {
         final @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> resultMap = new LinkedHashMap<>();
 
-        for (Map.Entry<@NotNull String, @NotNull ToolTransformation> configEntry : rawMap.entrySet()) {
-            if (configEntry.getValue().isInvalid()) { // just ignore invalid entries
+        for (Map.Entry<@NotNull AItemLike, @NotNull ToolTransformation> configEntry : rawMap.entrySet()) {
+            if (configEntry.getKey().isInvalid() || configEntry.getValue().isInvalid()) { // just ignore invalid entries
                 continue;
             }
 
-            try {
-                for (RegistryEntry<Item> entryItemResult : readItems(configEntry.getKey(), itemRegistry)) {
-                    final @NotNull Item item = entryItemResult.value().asItem();
+            for (final @NotNull Item item : configEntry.getKey()) {
+                @Nullable SequencedSet<ToolTransformation> set = resultMap.get(item);
 
-                    @Nullable SequencedSet<ToolTransformation> set = resultMap.get(item);
-
-                    if (set == null) {
-                        set = new LinkedHashSet<>();
-                        resultMap.put(item, set);
-                    } else {
-                        // remove duplicates, this does the work for negated items as well.
-                        set.removeIf(other -> configEntry.getValue().matches(other));
-                    }
-
-                    set.add(configEntry.getValue());
+                if (set == null) {
+                    set = new LinkedHashSet<>();
+                    resultMap.put(item, set);
+                } else {
+                    // remove duplicates, this does the work for negated items as well.
+                    set.removeIf(other -> configEntry.getValue().matches(other));
                 }
 
-            } catch (CommandSyntaxException e) {
-                BackTools.LOGGER.error("Could not load config entry {}. Skipping!", configEntry.getKey(), e);
+                set.add(configEntry.getValue());
             }
         }
 
@@ -209,62 +205,146 @@ public class ConfigHandler {
         yaclHandler.save();
     }
 
-    /*
-    public @NotNull SequencedSet<ItemStack> fetchItemStacks (final @NotNull String str) {
-        SequencedSet<ItemStack> result = new LinkedHashSet<>();
+    public @NotNull SequencedSet<@NotNull AItemLike> readAllFittingItems(final @NotNull String arg) {
+        final @NotNull RegistryWrapper<Item> itemRegistry = this.accessItemRegistry();
+        final @NotNull Matcher matcher = NAMESPACED_PATTERN.matcher(arg);
 
-        try {
-            ItemTagStringReader.ItemResult itemResult = itemTagStringReader.parse(str);
+        if (matcher.matches()) {
+            final @NotNull SequencedSet<@NotNull AItemLike> result = bakeSortedSet(matcher.group("path"));
 
-            for (RegistryEntry<Item> entry : itemResult.items()) {
-                ItemStack itemStack = new ItemStack(entry, 1);
-                if (itemResult.components() != null) {
-                    itemStack.applyUnvalidatedChanges(itemResult.components());
+            if (matcher.group("isTag") != null) {
+                if (!(this.wrapperLookup instanceof DynamicRegistryManager)) { // todo communicate and maybe allow it??
+                    return Collections.emptySortedSet();
                 }
 
-                result.add(itemStack);
-            }
-        } catch (CommandSyntaxException e) { // todo
+                final @NotNull Predicate<TagKey<Item>> filterPredicate = itemTagKey -> createFilterPredicate(matcher, true).test(itemTagKey.id());
 
+                for (Iterator<TagKey<Item>> iterator = itemRegistry.streamTagKeys().iterator(); iterator.hasNext(); ) {
+                    final @NotNull TagKey<Item> tagKey = iterator.next();
+
+                    if (filterPredicate.test(tagKey)) {
+                        try {
+                            result.add(AItemLike.fromTag(tagKey));
+                        } catch (NoSuchElementException e) { // todo tag is empty??
+                            // fabric adds a bunch of item tags under the namespace c. some of them are empty.
+                            BackTools.LOGGER.debug("Could not get items for item tag {} (tas has no members). Skipping!", tagKey.id());
+                        } catch (Exception e) {
+                            BackTools.LOGGER.warn("Could not get items for item tag {}. Skipping!", tagKey.id(), e);
+                        }
+                    }
+                }
+            } else {
+                final @NotNull Predicate<Identifier> filterPredicate = createFilterPredicate(matcher, false);
+
+                for (final @NotNull Identifier identifier : Registries.ITEM.getIds()) {
+                    if (filterPredicate.test(identifier)) {
+                        itemRegistry.getOptional(RegistryKey.of(RegistryKeys.ITEM, identifier)).
+                            ifPresent(entry -> result.add(new AItemLike.DirectItemLike(identifier, entry.value())));
+                    }
+                }
+            }
+
+            return result;
         }
 
-        return result;
+        return Collections.emptySortedSet();
+
     }
-*/
-    private @NotNull SequencedSet<@NotNull RegistryEntry<@NotNull Item>> readItems(final @NotNull String arg, final @NotNull RegistryWrapper.Impl<Item> itemRegistry) throws CommandSyntaxException {
+
+    public @NotNull AItemLike readAItemLike(final @NotNull String arg) throws CommandSyntaxException {
+        final @NotNull RegistryWrapper<Item> itemRegistryWrapper = accessItemRegistry();
         final @NotNull StringReader reader = new StringReader(arg);
-        final int indexBefore = reader.getCursor();
-        final SequencedSet<RegistryEntry<Item>> itemResult = new LinkedHashSet<>();
 
         if (reader.canRead() && reader.peek() == '#') {
+            final SequencedSet<Item> itemResult = new LinkedHashSet<>();
+
             try {
                 reader.skip();
-                final Identifier identifier = Identifier.fromCommandInput(reader);
+                final @NotNull Identifier identifier = Identifier.fromCommandInput(reader);
 
-                final RegistryEntryList.Named<Item> registryEntries = Registries.ITEM.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> { // alternative ItemTagStringReader.this.itemRegistry
-                    reader.setCursor(indexBefore);
+                final RegistryEntryList.Named<Item> registryEntries = itemRegistryWrapper.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
+                    reader.setCursor(0);
                     return INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
                 });
 
                 for (RegistryEntry<Item> item : registryEntries) {
-                    itemResult.add(item);
+                    itemResult.add(item.value());
                 }
+
+                return new AItemLike.TagItemLike(identifier, itemResult);
             } catch (CommandSyntaxException ex) {
-                reader.setCursor(indexBefore);
-                throw ex;
+                reader.setCursor(0);
+                throw new RuntimeException(ex);
             }
         } else {
-            Identifier identifier = Identifier.fromCommandInput(reader);
-            itemResult.add(itemRegistry.getOptional(RegistryKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
-                reader.setCursor(indexBefore);
-                return INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
-            }));
-        }
+            final @NotNull Identifier identifier = Identifier.fromCommandInput(reader);
 
-        return itemResult;
+            return new AItemLike.DirectItemLike(identifier,
+                itemRegistryWrapper.getOptional(RegistryKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
+                    reader.setCursor(0);
+                    return INVALID_ITEM_ID_EXCEPTION.createWithContext(reader, identifier);
+                }).value()
+            );
+        }
+    }
+
+    public static @Nullable Identifier getItemId(final @NotNull Item item) {
+        return Registries.ITEM.getEntry(item).getKey().map(RegistryKey::getValue).orElse(null);
     }
 
     public @NotNull DynamicOps<JsonElement> getDynamicJSONOps() {
         return dynamicJSONOps;
+    }
+
+    public @NotNull RegistryWrapper<Item> accessItemRegistry() throws IllegalStateException {
+        return wrapperLookup.getOrThrow(RegistryKeys.ITEM);
+    }
+
+    // Helper method to create the filter predicate
+    private static Predicate<Identifier> createFilterPredicate(final @NotNull Matcher matcher, final boolean isTagKey) {
+        if (matcher.group("namespace") != null) {
+            return identifier -> identifier.getNamespace().startsWith(matcher.group("namespace"))
+                && identifier.getPath().startsWith(matcher.group("path"));
+        } else {
+            if (isTagKey) {
+                return identifier -> identifier.getNamespace().startsWith(matcher.group("path")) || // suggest fitting namespaces
+                    identifier.getPath().startsWith(matcher.group("path"));
+            } else {
+                return identifier -> identifier.getPath().contains(matcher.group("path"))
+                    || Registries.ITEM.get(identifier).getName()
+                    .getString().toLowerCase().contains(matcher.group("path").toLowerCase());
+            }
+        }
+    }
+
+    // Helper method to create a map sorting by best match of the identifier
+    private static @NotNull SortedSet<AItemLike> bakeSortedSet(final @NotNull String path) {
+        final @NotNull Comparator<@NotNull AItemLike> comparator = (aItemLike, otherItemLike) -> {
+            /*
+             Sort items as follows based on the given "value" string's path:
+             - if both items' paths begin with the entered string, sort the identifiers (including namespace)
+             - otherwise, if either of the items' path begins with the entered string, sort it to the left
+             - else neither path matches: sort by identifiers again
+
+             This allows the user to enter "diamond_ore" and match "minecraft:diamond_ore" before
+             "minecraft:deepslate_diamond_ore", even though the second is lexicographically smaller
+             */
+            final boolean id1StartsWith = aItemLike.getIdentifier().getPath().toLowerCase().startsWith(path);
+            final boolean id2StartsWith = otherItemLike.getIdentifier().getPath().toLowerCase().startsWith(path);
+
+            if (id1StartsWith) {
+                if (id2StartsWith) {
+                    return aItemLike.getIdentifier().compareTo(otherItemLike.getIdentifier());
+                }
+                return -1;
+            }
+            if (id2StartsWith) {
+                return 1;
+            }
+
+            return aItemLike.getIdentifier().compareTo(otherItemLike.getIdentifier());
+        };
+
+        return new TreeSet<>(comparator);
     }
 }

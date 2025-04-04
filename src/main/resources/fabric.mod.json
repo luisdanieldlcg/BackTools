@@ -19,7 +19,7 @@
       "com.daniking.backtools.BackTools"
     ],
     "modmenu": [
-      "com.daniking.backtools.config.ModMenuIntegration"
+      "com.daniking.backtools.config.menu.ModMenuIntegration"
     ]
   },
   "mixins": [
