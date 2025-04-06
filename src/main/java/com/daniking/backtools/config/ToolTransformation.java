@@ -8,10 +8,16 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.internal.Streams;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.mojang.serialization.Dynamic;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.SharedConstants;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.ComponentType;
+import net.minecraft.datafixer.TypeReferences;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.util.dynamic.Codecs;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -51,20 +57,8 @@ public class ToolTransformation extends Object {
 
     /**
      * @see #empty()
-     * @see ToolTransformationBuilder
+     * @see #builder()
      */
-    public ToolTransformation(@Nullable ComponentChanges componentChanges,
-                              float offsetX, float offsetY, float offsetZ,
-                              float rotationX, float rotationY, float rotationZ,
-                              @Range(from = 0, to = Integer.MAX_VALUE) float scaleX, @Range(from = 0, to = Integer.MAX_VALUE) float scaleY, @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ,
-                              boolean isSymmetric, boolean isBlacklisted) {
-        this(componentChanges, null,
-            offsetX, offsetY, offsetZ,
-            rotationX, rotationY, rotationZ,
-            scaleX, scaleY, scaleZ,
-            isSymmetric, isBlacklisted);
-    }
-
     protected ToolTransformation(@Nullable ComponentChanges componentChanges, @Nullable JsonElement invalidChanges,
                                  float offsetX, float offsetY, float offsetZ,
                                  float rotationX, float rotationY, float rotationZ,
@@ -197,6 +191,10 @@ public class ToolTransformation extends Object {
             scaleZ(this.scaleZ).
             isSymmetric(this.isSymmetric).
             isBlacklisted(this.isBlacklisted);
+    }
+
+    public static ToolTransformationBuilder builder () {
+        return new ToolTransformationBuilder();
     }
 
     @Override
@@ -403,10 +401,11 @@ public class ToolTransformation extends Object {
             OFFSET_KEY = "offset",
             SCALE_KEY = "scale",
             IS_SYMMETRIC_KEY = "is_symmetric",
-            IS_BLACKLISTED = "is_blacklisted",
+            IS_BLACKLISTED_KEY = "is_blacklisted",
             X_KEY = "x",
             Y_KEY = "y",
-            Z_KEY = "z";
+            Z_KEY = "z",
+            DATA_VERSION_KEY = "component_data_version";
 
         private static void warnUnknown(@NotNull JsonReader jsonReader) throws IOException {
             BackTools.LOGGER.warn("I have unexpectedly just read {} with type {} did you downgrade?", jsonReader.getPath(), jsonReader.peek());
@@ -421,11 +420,27 @@ public class ToolTransformation extends Object {
                 Streams.write(toolTransformation.invalidChanges, jsonWriter);
 
             } else if (toolTransformation.componentChanges != null && !toolTransformation.componentChanges.isEmpty()) {
+                // add data version to funnel the components though dataFixerUpper when reading back
+                // you may ask why add this version to every option and not just globally in the config?
+                // After all it already has a version incorporated into it. Combining them wouldn't be that bad / hard, right?
+                // And component entries will be read, doesn't it?
+                // Good question. What you may not have thought of is, that a Tooltransformation can dail to deserialize and will just stay effectively the same,
+                // until one day it is valid and can be loaded.
+                // this may lead to very different data versions across the config, only loaded once the datapack is also loaded.
+                jsonWriter.name(DATA_VERSION_KEY);
+                jsonWriter.value(SharedConstants.getGameVersion().getSaveVersion().getId());
+
                 jsonWriter.name(COMPONENTS_KEY);
 
                 final Strictness strictnessBefore = jsonWriter.getStrictness();
                 jsonWriter.setStrictness(Strictness.LENIENT);
-                Streams.write(ComponentChanges.CODEC.encodeStart(BackTools.getConfigHandler().getDynamicJSONOps(), toolTransformation.componentChanges).getOrThrow(IOException::new), jsonWriter);
+                Streams.write( // encode to nbt and convert to json, since our config has to be written in json, but using dataFixerUpper when reading it is done in nbt. So in order to avoid issues where just encoding it in json but reading it in json converting to nbt, using dfu, and then decoding it back to ComponentChanges just do the reverse when writing.
+                    Codecs.fromOps(BackTools.getConfigHandler().getDynamicNBTOps()).encodeStart(
+                        BackTools.getConfigHandler().getDynamicJSONOps(), ComponentChanges.CODEC.encodeStart(
+                            BackTools.getConfigHandler().getDynamicNBTOps(), toolTransformation.componentChanges
+                        ).getOrThrow(IOException::new)
+                    ).getOrThrow(IOException::new), jsonWriter
+                );
                 jsonWriter.setStrictness(strictnessBefore);
             }
 
@@ -501,7 +516,7 @@ public class ToolTransformation extends Object {
             }
 
             if (toolTransformation.isBlacklisted()) {
-                jsonWriter.name(IS_BLACKLISTED);
+                jsonWriter.name(IS_BLACKLISTED_KEY);
                 jsonWriter.value(true);
             }
 
@@ -512,20 +527,18 @@ public class ToolTransformation extends Object {
         public @NotNull ToolTransformation read(final @NotNull JsonReader jsonReader) throws IOException {
             final ToolTransformationBuilder builder = new ToolTransformationBuilder();
 
+            int vanillaComponentDataVersion = SharedConstants.getGameVersion().getSaveVersion().getId();
+            @Nullable JsonElement serializedComponentChanges = null;
+
             jsonReader.beginObject();
             while (jsonReader.hasNext()) {
                 switch (jsonReader.nextName()) {
+                    case DATA_VERSION_KEY -> {
+                        vanillaComponentDataVersion = jsonReader.nextInt();
+                    }
                     case COMPONENTS_KEY -> {
                         // no begin / end object here, the parser will take care of this
-                        final JsonElement element = JsonParser.parseReader(jsonReader);
-
-                        ComponentChanges.CODEC.decode(BackTools.getConfigHandler().getDynamicJSONOps(), element).
-                            ifSuccess(succPair -> builder.componentChanges(succPair.getFirst())
-                            ).ifError(errPair -> {
-                                BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context. This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
-
-                                builder.invalidComponentChanges(element);
-                            });
+                        serializedComponentChanges = JsonParser.parseReader(jsonReader);
                     }
                     case OFFSET_KEY -> {
                         jsonReader.beginObject();
@@ -573,11 +586,41 @@ public class ToolTransformation extends Object {
                         jsonReader.endObject();
                     }
                     case IS_SYMMETRIC_KEY -> builder.isSymmetric(jsonReader.nextBoolean());
-                    case IS_BLACKLISTED -> builder.isBlacklisted(jsonReader.nextBoolean());
+                    case IS_BLACKLISTED_KEY -> builder.isBlacklisted(jsonReader.nextBoolean());
                     default -> warnUnknown(jsonReader);
                 }
             }
             jsonReader.endObject();
+
+            if (serializedComponentChanges != null) {
+                if (vanillaComponentDataVersion > SharedConstants.getGameVersion().getSaveVersion().getId()) {
+                    // the data was loaded by a newer / incompatible game version!
+                    BackTools.LOGGER.warn("Skipped configured element, because it's components could get loaded by current game version (expected data version: {}, got: {}. Did you downgrade? No worries, nothing is lost. But the entry will not be available until loaded with a compatible game version again!", SharedConstants.getGameVersion().getSaveVersion().getId(), vanillaComponentDataVersion);
+
+                    builder.invalidComponentChanges(serializedComponentChanges);
+                } else {
+                    // java grow up and stop bitching about non-final variables in lambdas, please copy them yourself or get smart enough to check that there is no case anything stupid could happen in cases like this!
+                    // everything gets consumed on spot.
+                    final @Nullable JsonElement finalSerializedComponentChanges = serializedComponentChanges;
+                    final int finalVanillaComponentDataVersion = vanillaComponentDataVersion;
+
+                    Codecs.fromOps(BackTools.getConfigHandler().getDynamicJSONOps()).encodeStart(BackTools.getConfigHandler().getDynamicNBTOps(), serializedComponentChanges).ifError(errPair -> {
+                        BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad json decode / nbt convert). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
+
+                        builder.invalidComponentChanges(finalSerializedComponentChanges);
+                    }).ifSuccess(rawNBTElement -> {
+                        final @NotNull NbtElement updatedNBTElement = MinecraftClient.getInstance().getDataFixer().update(TypeReferences.ITEM_STACK, new Dynamic<>(BackTools.getConfigHandler().getDynamicNBTOps(), rawNBTElement), finalVanillaComponentDataVersion, SharedConstants.getGameVersion().getSaveVersion().getId()).getValue();
+
+                        ComponentChanges.CODEC.parse(BackTools.getConfigHandler().getDynamicNBTOps(), updatedNBTElement).ifError(errPair -> {
+                            BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad nbt parse). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
+
+                            builder.invalidComponentChanges(finalSerializedComponentChanges);
+                        }).ifSuccess(componentChanges -> {
+                            builder.componentChanges(componentChanges);
+                        });
+                    });
+                }
+            }
 
             return builder.build();
         }

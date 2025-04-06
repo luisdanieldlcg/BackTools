@@ -22,6 +22,8 @@ import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.component.ComponentChanges;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.*;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.entry.RegistryEntryList;
@@ -57,6 +59,7 @@ public class ConfigHandler {
 
     private @NotNull RegistryWrapper.WrapperLookup wrapperLookup = CommandRegistryAccess.of(BuiltinRegistries.createWrapperLookup(), FeatureFlags.FEATURE_MANAGER.getFeatureSet());
     private @NotNull DynamicOps<JsonElement> dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
+    private @NotNull DynamicOps<NbtElement> dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
 
     private final @NotNull ConfigClassHandler<BackToolsConfig> yaclHandler = ConfigClassHandler.createBuilder(BackToolsConfig.class).
         id(Identifier.of(BackTools.modID, "general_config")).
@@ -144,6 +147,7 @@ public class ConfigHandler {
     public void checkWrapperLookUp(final @NotNull RegistryWrapper.WrapperLookup wrapperLookup) {
         if (this.wrapperLookup != wrapperLookup) {
             this.dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
+            this.dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
             this.wrapperLookup = wrapperLookup;
             reload();
         }
@@ -167,14 +171,17 @@ public class ConfigHandler {
             // data fixer upper config here
         }
 
-        // parse configured Items
-        backConfigurations = processToolConfig(yaclHandler.instance().backTools);
-        beltConfigurations = processToolConfig(yaclHandler.instance().beltTools);
+        // we could iterate over the raw values, as they come from the yaclHandler,
+        // but we had to check every ItemLike if the item is in there and for every match we would have to check the components.
+        // if we unpack them now we sacrifice a bit of memory for the benefit of comparing hashes and
+        // fewer component comparisons
+        backConfigurations = unpackItemLikes(yaclHandler.instance().backTools);
+        beltConfigurations = unpackItemLikes(yaclHandler.instance().beltTools);
 
         saveConfig();
     }
 
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> processToolConfig(final Map<@NotNull AItemLike, @NotNull ToolTransformation> rawMap) {
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> unpackItemLikes(final Map<@NotNull AItemLike, @NotNull ToolTransformation> rawMap) {
         final @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> resultMap = new LinkedHashMap<>();
 
         for (Map.Entry<@NotNull AItemLike, @NotNull ToolTransformation> configEntry : rawMap.entrySet()) {
@@ -248,7 +255,6 @@ public class ConfigHandler {
         }
 
         return Collections.emptySortedSet();
-
     }
 
     public @NotNull AItemLike readAItemLike(final @NotNull String arg) throws CommandSyntaxException {
@@ -289,11 +295,15 @@ public class ConfigHandler {
     }
 
     public static @Nullable Identifier getItemId(final @NotNull Item item) {
-        return Registries.ITEM.getEntry(item).getKey().map(RegistryKey::getValue).orElse(null);
+        return Registries.ITEM.getEntry(item).getKey().map(RegistryKey::getValue).orElse(null); // todo figure out how the access the dynamic registry for this and solve how ItemLikes can access this before this instance was fully created
     }
 
     public @NotNull DynamicOps<JsonElement> getDynamicJSONOps() {
         return dynamicJSONOps;
+    }
+
+    public @NotNull DynamicOps<NbtElement> getDynamicNBTOps() {
+        return dynamicNBTOps;
     }
 
     public @NotNull RegistryWrapper<Item> accessItemRegistry() throws IllegalStateException {

@@ -1,7 +1,6 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.Utils;
-import com.daniking.backtools.config.ToolTransformation.ToolTransformationBuilder;
 import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -50,32 +49,32 @@ public class BackToolsConfig {
         AItemLike.fromTag(ItemTags.AXES), ToolTransformation.empty(),
         AItemLike.fromTag(ItemTags.SHOVELS), ToolTransformation.empty(),
         AItemLike.fromTag(ItemTags.HOES), ToolTransformation.empty(),
-        AItemLike.fromItem(Items.FISHING_ROD), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.FISHING_ROD), ToolTransformation.builder().
             rotationX(180F).
             rotationZ(270F).
             build(),
-        AItemLike.fromItem(Items.CARROT_ON_A_STICK), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.CARROT_ON_A_STICK), ToolTransformation.builder().
             rotationX(180F).
             rotationZ(270F).
             build(),
-        AItemLike.fromItem(Items.WARPED_FUNGUS_ON_A_STICK), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.WARPED_FUNGUS_ON_A_STICK), ToolTransformation.builder().
             rotationX(180F).
             rotationZ(270F).
             build(),
         AItemLike.fromItem(Items.SHEARS), ToolTransformation.empty(),
         AItemLike.fromTag(ItemTags.SWORDS), ToolTransformation.empty(),
-        AItemLike.fromItem(Items.MACE), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.MACE), ToolTransformation.builder().
             rotationZ(22.5F).
             build(),
         AItemLike.fromItem(Items.TRIDENT), ToolTransformation.empty(),
-        AItemLike.fromItem(Items.BOW), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.BOW), ToolTransformation.builder().
             rotationZ(180F).
             build(),
-        AItemLike.fromItem(Items.CROSSBOW), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.CROSSBOW), ToolTransformation.builder().
             rotationZ(270F).
             build(),
         // default shield doesn't look good, way to small
-        AItemLike.fromItem(Items.SHIELD), new ToolTransformationBuilder().
+        AItemLike.fromItem(Items.SHIELD), ToolTransformation.builder().
             offsetX(1 / 16F).
             offsetY(-1F / 16F).
             offsetZ(-1.91F / 16F).
