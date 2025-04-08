@@ -98,4 +98,6 @@ public class BackToolsConfig {
     public boolean helicopterMode = false;
     @SerialEntry(comment = "If true, tools render with capes")
     public boolean renderWithCapes = false;
+    @SerialEntry(comment = "If false, a simplified menu will be shown, if true everything is configurable from the ingame menu")
+    public boolean advancedMenuEntries = false;
 }

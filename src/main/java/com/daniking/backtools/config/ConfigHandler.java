@@ -144,6 +144,43 @@ public class ConfigHandler {
         return yaclHandler.instance().renderWithCapes;
     }
 
+    public boolean isAdvancedMenu() {
+        return yaclHandler.instance().advancedMenuEntries;
+    }
+
+    public void shouldRenderWithCapes(final boolean shouldRenderWithCapes) {
+        yaclHandler.instance().renderWithCapes = shouldRenderWithCapes;
+        saveConfig();
+    }
+
+    public void helicopterMode(final boolean helicopterMode) {
+        yaclHandler.instance().helicopterMode = helicopterMode;
+        saveConfig();
+    }
+
+    public void advancedMenuEntries(final boolean advancedMenuEntries) {
+        yaclHandler.instance().advancedMenuEntries = advancedMenuEntries;
+        saveConfig();
+    }
+
+    public @NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBackTools() {
+        return yaclHandler.instance().backTools;
+    }
+
+    public void rawBackTools(@NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBackTools) {
+        yaclHandler.instance().backTools = rawBackTools;
+        saveConfig();
+    }
+
+    public @NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBeltTools() {
+        return yaclHandler.instance().beltTools;
+    }
+
+    public void rawBeltTools(@NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBeltTools) {
+        yaclHandler.instance().beltTools = rawBeltTools;
+        saveConfig();
+    }
+
     public void checkWrapperLookUp(final @NotNull RegistryWrapper.WrapperLookup wrapperLookup) {
         if (this.wrapperLookup != wrapperLookup) {
             this.dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
