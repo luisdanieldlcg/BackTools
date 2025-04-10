@@ -1,5 +1,9 @@
 package com.daniking.backtools.config.menu.yacl;
 
+import com.daniking.backtools.BackTools;
+import com.daniking.backtools.config.AItemLike;
+import com.daniking.backtools.config.ToolTransformation;
+import com.daniking.backtools.config.menu.Ticker;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.utils.Dimension;
 import dev.isxander.yacl3.gui.AbstractWidget;
@@ -7,7 +11,9 @@ import dev.isxander.yacl3.gui.YACLScreen;
 import dev.isxander.yacl3.gui.controllers.ControllerWidget;
 import dev.isxander.yacl3.gui.controllers.ListEntryWidget;
 import dev.isxander.yacl3.impl.ProvidesBindingForDeprecation;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,7 +23,7 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-public class ListButtonOption<T> implements ListOptionEntry<T> {
+public class ListButtonOption<T extends Map.Entry<AItemLike, ToolTransformation>> implements ListOptionEntry<T> {
     private final @NotNull ButtonList<T> group;
     private final @NotNull Controller<T> controller;
     private final @NotNull StateManager<T> stateManager;
@@ -29,6 +35,11 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
         this.group = group;
         this.action = action;
         this.stateManager = StateManager.createSimple(new EntryBinding(bindingFactory.apply(this)));
+        stateManager.addListener((newPendingValue, oldValue) -> {
+            if (newPendingValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
+                Ticker.getInstance().startTicking(tagItemLike);
+            }
+        });
         this.controller = new EntryController(this);
     }
 
@@ -96,21 +107,27 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
     }
 
     public boolean applyValue() {
+        if (changed()) {
+            this.stateManager.apply();
+            return true;
+        }
         return false;
     }
 
     public void forgetPendingValue() {
+        this.stateManager.sync();
     }
 
     public void requestSetDefault() {
+        this.stateManager.resetToDefault(StateManager.ResetAction.BY_OPTION);
     }
 
     public boolean isPendingValueDefault() {
-        return false;
+        return this.stateManager.isDefault();
     }
 
     public boolean canResetToDefault() {
-        return false;
+        return true;
     }
 
     @ApiStatus.Internal
@@ -171,6 +188,7 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
 
         public void setValue(final @NotNull T newValue) {
             superBinding.setValue(newValue);
+
             ListButtonOption.this.group.triggerListener(OptionEventListener.Event.OTHER, true);
         }
 
@@ -179,7 +197,14 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
         }
 
         public @NotNull T defaultValue() {
-            return superBinding.defaultValue();
+            final T defaultValue = superBinding.defaultValue();
+            BackTools.LOGGER.info("defaultValue");
+
+            if (defaultValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
+                Ticker.getInstance().startTicking(tagItemLike);
+            }
+
+            return defaultValue;
         }
     }
 
@@ -189,11 +214,30 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
             super(control, screen, dim);
         }
 
+        @Override
+        protected void drawValueText(final @NotNull DrawContext graphics, final int mouseX, final int mouseY, final float delta) {
+            Ticker.getInstance().tryToTick();
+
+            final Dimension<Integer> oldDimension = this.getDimension();
+            this.setDimension(this.getDimension().withWidth(this.getDimension().width() - this.getDecorationPadding()));
+            super.drawValueText(graphics, mouseX, mouseY, delta);
+            this.setDimension(oldDimension);
+
+            Map.Entry<AItemLike, ToolTransformation> entry = this.control.option().pendingValue();
+
+            if (entry.getKey().isInvalid()) {
+                graphics.drawTextWithShadow(textRenderer, Text.literal("?"), this.getDimension().xLimit() - this.getXPadding() - this.getDecorationPadding() / 2, this.getTextY(), Formatting.DARK_GRAY.getColorValue());
+            } else {
+                graphics.drawItemWithoutEntity(entry.getValue().createStack(entry.getKey().getDisplayItem()), this.getDimension().xLimit() - this.getXPadding() - this.getDecorationPadding() + 2, this.getDimension().y() + 2);
+            }
+        }
+
         public void executeAction() {
             this.playDownSound();
             this.control.option().action().accept(this.screen, this.control.option());
         }
 
+        @Override
         public boolean mouseClicked(final double mouseX, final double mouseY, final int button) {
             if (this.isMouseOver(mouseX, mouseY) && this.isAvailable()) {
                 this.executeAction();
@@ -203,6 +247,7 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
             }
         }
 
+        @Override
         public boolean keyPressed(final int keyCode, final int scanCode, final int modifiers) {
             if (!this.focused) {
                 return false;
@@ -214,16 +259,23 @@ public class ListButtonOption<T> implements ListOptionEntry<T> {
             }
         }
 
+        @Override
         protected int getHoveredControlWidth() {
             return this.getUnhoveredControlWidth();
         }
 
+        @Override
         public boolean canReset() {
             return false;
         }
 
+        @Override
         public boolean matchesSearch(final @NotNull String query) {
             return super.matchesSearch(query) || control.stringValue().toLowerCase().contains(query);
+        }
+
+        protected int getDecorationPadding() {
+            return 16;
         }
     }
 }

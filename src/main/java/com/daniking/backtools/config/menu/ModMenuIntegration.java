@@ -69,7 +69,7 @@ public class ModMenuIntegration implements ModMenuApi {
             ).category(
                 ConfigCategory.createBuilder().
                     name(Text.literal("back tools")).
-                    group(ButtonList.<Map.Entry<AItemLike, ToolTransformation>>createBuilder().
+                    group(ButtonList.createBuilder().
                         state(new ListStateManager(
                             new ListBinding(
                                 () -> BackTools.getConfigHandler().rawBackTools(),
@@ -111,7 +111,7 @@ public class ModMenuIntegration implements ModMenuApi {
             ).category(
                 ConfigCategory.createBuilder().
                     name(Text.literal("belt tools")).
-                    group(ButtonList.<Map.Entry<AItemLike, ToolTransformation>>createBuilder().
+                    group(ButtonList.createBuilder().
                         state(new ListStateManager(
                             new ListBinding(
                                 () -> BackTools.getConfigHandler().rawBeltTools(),

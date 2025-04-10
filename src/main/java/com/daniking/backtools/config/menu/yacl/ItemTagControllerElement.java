@@ -6,14 +6,13 @@ import com.daniking.backtools.config.menu.Ticker;
 import dev.isxander.yacl3.api.utils.Dimension;
 import dev.isxander.yacl3.gui.YACLScreen;
 import dev.isxander.yacl3.gui.controllers.dropdown.AbstractDropdownControllerElement;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.SequencedMap;
@@ -22,7 +21,6 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
     private final ItemTagController itemTagController;
     protected @Nullable AItemLike currentItemLike = null;
     protected SequencedMap<String, @NotNull AItemLike> matchingItems = new LinkedHashMap<>();
-    private final @NotNull Ticker ticker = new Ticker(Duration.ofSeconds(2));
 
     public ItemTagControllerElement(final @NotNull ItemTagController control, final @NotNull YACLScreen screen, final @NotNull Dimension<@NotNull Integer> dim) {
         super(control, screen, dim);
@@ -31,7 +29,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
 
     @Override
     protected void drawValueText(final @NotNull DrawContext graphics, final int mouseX, final int mouseY, final float delta) {
-        ticker.tryToTick();
+        Ticker.getInstance().tryToTick();
 
         Dimension<Integer> oldDimension = this.getDimension();
         this.setDimension(this.getDimension().withWidth(this.getDimension().width() - this.getDecorationPadding()));
@@ -40,7 +38,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
 
         if (this.currentItemLike != null) {
             if (currentItemLike.isInvalid()) {
-                graphics.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer, Text.literal(""), this.getDimension().xLimit() - this.getXPadding() - this.getDecorationPadding() + 2, this.getDimension().y() + 2, 14737632);
+                graphics.drawTextWithShadow(textRenderer, Text.literal("?"), this.getDimension().xLimit() - this.getXPadding() - this.getDecorationPadding() / 2, this.getTextY(), Formatting.DARK_GRAY.getColorValue());
             } else {
                 graphics.drawItemWithoutEntity(new ItemStack(currentItemLike.getDisplayItem()), this.getDimension().xLimit() - this.getXPadding() - this.getDecorationPadding() + 2, this.getDimension().y() + 2);
             }
@@ -54,9 +52,9 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         for (final @NotNull AItemLike aItemLike : BackTools.getConfigHandler().readAllFittingItems(value)) { // todo handle invalid tags here if the configHandler couldn't read the tag (since it may be still perfectly fine in another context!) <-- also render some sort of info (hover) text "Could not find in current context, make sure to load the depending datapack or join the server that defines this tag."
             switch (aItemLike) {
                 case AItemLike.TagItemLike tagItemLike -> {
-                    ticker.startTicking(tagItemLike);
+                    Ticker.getInstance().startTicking(tagItemLike);
 
-                    result.put(aItemLike.toString(), tagItemLike);
+                    result.put(tagItemLike.toString(), tagItemLike);
                 }
                 case AItemLike.DirectItemLike directItemLike -> result.put(aItemLike.toString(), directItemLike);
                 default -> {
@@ -67,6 +65,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         return result;
     }
 
+    @Override
     public @NotNull List<@NotNull String> computeMatchingValues() {
         matchingItems = getMatchingItemIdentifiers(this.inputField);
 
@@ -79,6 +78,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         return List.copyOf(matchingItems.keySet());
     }
 
+    @Override
     protected void renderDropdownEntry(DrawContext graphics, Dimension<Integer> entryDimension, String identifier) {
         super.renderDropdownEntry(graphics, entryDimension, identifier);
 
@@ -114,10 +114,12 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         } else if (inputFieldFocused) {
             return Text.literal(inputField);
         } else {
-            if (itemTagController.option().pendingValue() instanceof AItemLike.TagItemLike) {
-                return Text.literal(itemTagController.option().pendingValue().toString());
+            final AItemLike pendingValue = itemTagController.option().pendingValue();
+
+            if (pendingValue instanceof AItemLike.DirectItemLike) {
+                return pendingValue.getDisplayItem().getName();
             } else {
-                return itemTagController.option().pendingValue().getDisplayItem().getName();
+                return Text.literal(pendingValue.toString());
             }
         }
     }

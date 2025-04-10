@@ -294,6 +294,12 @@ public class ConfigHandler {
         return Collections.emptySortedSet();
     }
 
+    public static boolean couldBeTag(final @NotNull String value) {
+        final @NotNull Matcher matcher = NAMESPACED_PATTERN.matcher(value);
+
+        return matcher.matches() && matcher.group("isTag") != null;
+    }
+
     public @NotNull AItemLike readAItemLike(final @NotNull String arg) throws CommandSyntaxException {
         final @NotNull RegistryWrapper<Item> itemRegistryWrapper = accessItemRegistry();
         final @NotNull StringReader reader = new StringReader(arg);
@@ -304,6 +310,10 @@ public class ConfigHandler {
             try {
                 reader.skip();
                 final @NotNull Identifier identifier = Identifier.fromCommandInput(reader);
+
+                if (!(this.wrapperLookup instanceof DynamicRegistryManager)) {
+                    return new AItemLike.InvalidItemLike('#' + identifier.toString());
+                }
 
                 final RegistryEntryList.Named<Item> registryEntries = itemRegistryWrapper.getOptional(TagKey.of(RegistryKeys.ITEM, identifier)).orElseThrow(() -> {
                     reader.setCursor(0);
@@ -317,7 +327,7 @@ public class ConfigHandler {
                 return new AItemLike.TagItemLike(identifier, itemResult);
             } catch (CommandSyntaxException ex) {
                 reader.setCursor(0);
-                throw new RuntimeException(ex);
+                throw ex;
             }
         } else {
             final @NotNull Identifier identifier = Identifier.fromCommandInput(reader);

@@ -2,6 +2,7 @@ package com.daniking.backtools.config.menu.yacl;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
+import com.daniking.backtools.config.ConfigHandler;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.utils.Dimension;
@@ -13,23 +14,15 @@ import net.minecraft.text.Text;
 import org.jetbrains.annotations.NotNull;
 
 public class ItemTagController extends AbstractDropdownController<AItemLike> {
-    private String input = "";
-
     public ItemTagController(Option<AItemLike> option) {
         super(option);
     }
 
     public String getString() {
-        if (this.option.pendingValue().isInvalid()) {
-            return input;
-        } else {
-            return this.option.pendingValue().toString();
-        }
+        return this.option.pendingValue().toString();
     }
 
     public void setFromString(final @NotNull String value) {
-        input = value;
-
         try {
             this.option.requestSet(BackTools.getConfigHandler().readAItemLike(value));
         } catch (CommandSyntaxException ignored) {
@@ -40,8 +33,9 @@ public class ItemTagController extends AbstractDropdownController<AItemLike> {
         return Text.literal(this.getString());
     }
 
-    public boolean isValueValid(final @NotNull String value) { // todo this doesn't check tags yet!!
-        return ItemRegistryHelper.isRegisteredItem(value);
+    public boolean isValueValid(final @NotNull String value) {
+        // all tags are "valid", since they might depend on Context
+        return ItemRegistryHelper.isRegisteredItem(value) || ConfigHandler.couldBeTag(value);
     }
 
     protected String getValidValue(final @NotNull String value, final int offset) {

@@ -1,5 +1,7 @@
 package com.daniking.backtools.config.menu.yacl;
 
+import com.daniking.backtools.config.AItemLike;
+import com.daniking.backtools.config.ToolTransformation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dev.isxander.yacl3.api.*;
@@ -18,7 +20,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("UnstableApiUsage")
-public class ButtonList<T> implements ListOption<T> {
+public class ButtonList<T extends Map.Entry<AItemLike, ToolTransformation>> implements ListOption<T> {
     private final Text name;
     private final OptionDescription description;
     private final StateManager<List<T>> stateManager;
@@ -60,7 +62,7 @@ public class ButtonList<T> implements ListOption<T> {
         this.triggerListener(OptionEventListener.Event.INITIAL, false);
     }
 
-    public static <T> BuilderImpl<T> createBuilder() {
+    public static <T extends Map.Entry<AItemLike, ToolTransformation>> BuilderImpl<T> createBuilder() {
         return new BuilderImpl<>();
     }
 
@@ -270,7 +272,7 @@ public class ButtonList<T> implements ListOption<T> {
     }
 
     @ApiStatus.Internal
-    public static final class BuilderImpl<T> {
+    public static final class BuilderImpl<T extends Map.Entry<AItemLike, ToolTransformation>> {
         private Text name = Text.empty();
         private OptionDescription description;
         private final Set<OptionFlag> flags;

@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 public class Ticker {
+    private final static @NotNull Ticker GLOBAL_INSTANCE = new Ticker(Duration.ofMillis(1500));
     private final @NotNull Set<AItemLike.TagItemLike> set = Collections.newSetFromMap(new WeakHashMap<>());
     private final @NotNull Duration duration;
     // I know we could be way faster using long encoded millis, but in my experience the risk of the timeunit getting messed up is not worth it
@@ -17,6 +18,10 @@ public class Ticker {
 
     public Ticker(final @NotNull Duration duration) {
         this.duration = duration;
+    }
+
+    public static @NotNull Ticker getInstance() {
+        return GLOBAL_INSTANCE;
     }
 
     /// Everything registered here is stored in a set with weak references to the objects.

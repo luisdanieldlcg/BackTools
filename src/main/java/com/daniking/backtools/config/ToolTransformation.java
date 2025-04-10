@@ -16,7 +16,10 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.ComponentChanges;
 import net.minecraft.component.ComponentType;
 import net.minecraft.datafixer.TypeReferences;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.dynamic.Codecs;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -88,7 +91,7 @@ public class ToolTransformation extends Object {
     }
 
     public boolean isInvalid() {
-        return invalidChanges != null;
+        return invalidChanges == null;
     }
 
     /**
@@ -174,6 +177,14 @@ public class ToolTransformation extends Object {
 
     public boolean isBlacklisted() {
         return isBlacklisted;
+    }
+
+    public @NotNull ItemStack createStack(final @NotNull Item item) {
+        if (componentChanges == null) {
+            return new ItemStack(item);
+        } else {
+            return new ItemStack(Registries.ITEM.getEntry(item), 1, componentChanges); // todo use dynamic registry from ConfigHandler
+        }
     }
 
     public @NotNull ToolTransformationBuilder toBuilder() {
