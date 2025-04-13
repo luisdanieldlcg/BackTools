@@ -90,7 +90,8 @@ public abstract class ClientWorldMixin {
                         final @Nullable HeldItemContext heldItemContext = BackTools.HELD_TOOLS.get(player.getNameForScoreboard());
 
                         if (heldItemContext != null) {
-                            heldItemContext.droppedEntity = itemEntity;
+
+                            heldItemContext.setDroppedEntity(itemEntity);
                             contexts.add(heldItemContext);
                         }
                     }
@@ -113,7 +114,7 @@ public abstract class ClientWorldMixin {
             final @Nullable Collection<@NotNull HeldItemContext> contexts = thrownItems.remove(entity.getUuid());
 
             if (contexts != null) {
-                contexts.forEach(heldItemContext -> heldItemContext.droppedEntity = null);
+                contexts.forEach(heldItemContext -> heldItemContext.setDroppedEntity(null));
             }
         }
     }

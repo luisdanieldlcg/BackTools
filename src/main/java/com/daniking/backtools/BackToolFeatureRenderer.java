@@ -19,15 +19,20 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.function.Function;
+
 @Environment(EnvType.CLIENT)
 public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends PlayerHeldItemFeatureRenderer<PlayerEntityRenderState, M> {
-    private @NotNull ItemStack mainStack = ItemStack.EMPTY;
-    private @NotNull ItemStack offStack = ItemStack.EMPTY;
-    private @NotNull Arm mainArm = Arm.RIGHT;
+    private final @NotNull Function<@NotNull String, @Nullable IItemContext> itemContextGetter;
+    private final @NotNull ToolTransformationFetcher toolTransformationFetcher;
 
     @Contract(pure = true)
-    public BackToolFeatureRenderer(final @NotNull FeatureRendererContext<PlayerEntityRenderState, M> context) {
+    public BackToolFeatureRenderer(final @NotNull FeatureRendererContext<PlayerEntityRenderState, M> context,
+                                   final @NotNull Function<@NotNull String, @Nullable IItemContext> itemContextGetter, @NotNull ToolTransformationFetcher toolTransformationFetcher) {
         super(context);
+
+        this.itemContextGetter = itemContextGetter;
+        this.toolTransformationFetcher = toolTransformationFetcher;
     }
 
     @Override
@@ -37,18 +42,16 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
             playerRenderState.sleepingDirection == null;
 
         if (!playerRenderState.invisible && BackTools.HELD_TOOLS.containsKey(playerRenderState.name)) {
-            final HeldItemContext ctx = BackTools.HELD_TOOLS.get(playerRenderState.name);
+            final @Nullable IItemContext itemContext = itemContextGetter.apply(playerRenderState.name);
 
-            if (ctx.droppedEntity != null) {
-                return;
+            if (itemContext != null && itemContext.isValid()) {
+                this.getContextModel().body.applyTransform(matrixStack);
+                final float age = BackTools.getConfigHandler().isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
+                final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
+
+                renderItem(itemContext.getMainHandStack(), matrixStack, vertexConsumerProvider, offset, playerRenderState.mainArm == Arm.RIGHT, age, light, shouldRenderBack); // Mainhand stack
+                renderItem(itemContext.getOffHandStack(), matrixStack, vertexConsumerProvider, offset, playerRenderState.mainArm == Arm.LEFT, age, light, shouldRenderBack); // Offhand stack
             }
-            this.setRenders(ctx.previousMain, ctx.previousOff, playerRenderState.mainArm);
-            this.getContextModel().body.applyTransform(matrixStack);
-            final float age = BackTools.getConfigHandler().isHelicopterModeOn() && (playerRenderState.isSwimming || playerRenderState.isGliding) ? playerRenderState.age : 0;
-            final float offset = !playerRenderState.equippedChestStack.isEmpty() ? 1.0F : playerRenderState.jacketVisible ? 0.5F : 0F;
-
-            renderItem(this.mainStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.RIGHT, age, light, shouldRenderBack); // Mainhand stack
-            renderItem(this.offStack, matrixStack, vertexConsumerProvider, offset, this.mainArm == Arm.LEFT, age, light, shouldRenderBack); // Offhand stack
         }
     }
 
@@ -61,7 +64,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
         if (!stack.isEmpty()) {
             matrices.push();
 
-            @Nullable ToolTransformation toolTransformation = BackTools.getConfigHandler().getBeltOrientation(stack);
+            @Nullable ToolTransformation toolTransformation = toolTransformationFetcher.getBeltTransformation(stack);
             if (toolTransformation != null) { // belt
 
                 if (isInverted) {
@@ -92,7 +95,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
                 final float scale = 0.6F;
                 matrices.scale(scale * toolTransformation.scaleX(), scale * toolTransformation.scaleY(), scale * toolTransformation.scaleZ());
             } else if (shouldRenderBack) {
-                toolTransformation = BackTools.getConfigHandler().getBackOrientation(stack);
+                toolTransformation = toolTransformationFetcher.getBackTransformation(stack);
 
                 if (toolTransformation != null) { // back
 
@@ -150,11 +153,5 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
             MinecraftClient.getInstance().getItemRenderer().renderItem(stack, ItemDisplayContext.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, provider, null, 0);
             matrices.pop();
         }
-    }
-
-    private void setRenders(final @NotNull ItemStack mainStack, final @NotNull ItemStack offStack, final @NotNull Arm side) {
-        this.mainStack = mainStack;
-        this.offStack = offStack;
-        this.mainArm = side;
     }
 }

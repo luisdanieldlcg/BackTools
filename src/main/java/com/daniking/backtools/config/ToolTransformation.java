@@ -315,6 +315,10 @@ public class ToolTransformation extends Object {
             return isBlacklisted;
         }
 
+        public boolean isInvalid() {
+            return invalidComponentChanges == null;
+        }
+
         public @NotNull ToolTransformationBuilder componentChanges(@Nullable ComponentChanges componentChanges) {
             this.changes = componentChanges;
 

@@ -6,7 +6,9 @@
   "mixins": [
   ],
   "client": [
+    "BipedEntityRendererInvoker",
     "ClientWorldMixin",
+    "PlayerEntityRendererInvoker",
     "PlayerEntityRendererMixin",
     "PlayerEntityTickMixin"
   ],

@@ -87,10 +87,10 @@ public class ConfigHandler {
         build();
 
     public boolean isItemEnabled(final @NotNull ItemStack itemStack) {
-        return getBackOrientation(itemStack) != null || getBeltOrientation(itemStack) != null;
+        return getBackTransformation(itemStack) != null || getBeltTransformation(itemStack) != null;
     }
 
-    public @Nullable ToolTransformation getBackOrientation(final @NotNull ItemStack itemStack) {
+    public @Nullable ToolTransformation getBackTransformation(final @NotNull ItemStack itemStack) {
         final ComponentChanges componentChanges = itemStack.getComponentChanges();
 
         final @Nullable SequencedSet<@NotNull ToolTransformation> toolTransformations = backConfigurations.get(itemStack.getItem());
@@ -113,7 +113,7 @@ public class ConfigHandler {
         return positiveMatch;
     }
 
-    public @Nullable ToolTransformation getBeltOrientation(final @NotNull ItemStack itemStack) {
+    public @Nullable ToolTransformation getBeltTransformation(final @NotNull ItemStack itemStack) {
         final ComponentChanges componentChanges = itemStack.getComponentChanges();
 
         final @Nullable SequencedSet<@NotNull ToolTransformation> toolTransformations = beltConfigurations.get(itemStack.getItem());

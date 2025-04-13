@@ -5,14 +5,15 @@ import net.fabricmc.api.Environment;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
-public class HeldItemContext {
-    public ItemEntity droppedEntity = null;
-    public ItemStack previousMain = ItemStack.EMPTY;
-    public ItemStack previousOff = ItemStack.EMPTY;
-    public ItemStack activeMain = ItemStack.EMPTY;
-    public ItemStack activeOff = ItemStack.EMPTY;
+public class HeldItemContext implements IItemContext {
+    private @Nullable ItemEntity droppedEntity = null;
+    private @NotNull ItemStack previousMain = ItemStack.EMPTY;
+    private @NotNull ItemStack previousOff = ItemStack.EMPTY;
+    private @NotNull ItemStack activeMain = ItemStack.EMPTY;
+    private @NotNull ItemStack activeOff = ItemStack.EMPTY;
 
     public void tick(final @NotNull ItemStack main, final @NotNull ItemStack off) {
         if (droppedEntity != null) {
@@ -57,6 +58,10 @@ public class HeldItemContext {
         }
     }
 
+    public void setDroppedEntity(final @Nullable ItemEntity droppedEntity) {
+        this.droppedEntity = droppedEntity;
+    }
+
     public void reset(final @NotNull ItemStack entityStack) {
         if (ItemStack.areItemsAndComponentsEqual(entityStack, previousMain)) {
             previousMain = ItemStack.EMPTY;
@@ -71,5 +76,17 @@ public class HeldItemContext {
         if (ItemStack.areItemsAndComponentsEqual(entityStack, activeOff)) {
             activeOff = ItemStack.EMPTY;
         }
+    }
+
+    public boolean isValid() {
+        return droppedEntity == null;
+    }
+
+    public @NotNull ItemStack getMainHandStack() {
+        return previousMain;
+    }
+
+    public @NotNull ItemStack getOffHandStack() {
+        return previousOff;
     }
 }
