@@ -41,7 +41,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
         final boolean shouldRenderBack = (!playerRenderState.capeVisible || playerRenderState.skinTextures.capeTexture() == null || BackTools.getConfigHandler().shouldRenderWithCapes()) &&
             playerRenderState.sleepingDirection == null;
 
-        if (!playerRenderState.invisible && BackTools.HELD_TOOLS.containsKey(playerRenderState.name)) {
+        if (!playerRenderState.invisible) {
             final @Nullable IItemContext itemContext = itemContextGetter.apply(playerRenderState.name);
 
             if (itemContext != null && itemContext.isValid()) {

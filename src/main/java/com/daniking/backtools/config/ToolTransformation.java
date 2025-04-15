@@ -315,7 +315,7 @@ public class ToolTransformation extends Object {
             return isBlacklisted;
         }
 
-        public boolean isInvalid() {
+        public boolean isValid() {
             return invalidComponentChanges == null;
         }
 
@@ -398,6 +398,14 @@ public class ToolTransformation extends Object {
             this.isBlacklisted = isBlacklisted;
 
             return this;
+        }
+
+        public @NotNull ItemStack createStack(final @NotNull Item item) {
+            if (changes == null) {
+                return new ItemStack(item);
+            } else {
+                return new ItemStack(Registries.ITEM.getEntry(item), 1, changes); // todo use dynamic registry from ConfigHandler
+            }
         }
 
         public @NotNull ToolTransformation build() {

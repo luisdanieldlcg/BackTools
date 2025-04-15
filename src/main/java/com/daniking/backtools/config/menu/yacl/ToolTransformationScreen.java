@@ -9,6 +9,10 @@ import com.daniking.backtools.config.menu.DisplayPlayerRenderState;
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.isxander.yacl3.api.*;
+import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
+import dev.isxander.yacl3.api.controller.FloatFieldControllerBuilder;
+import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
+import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import dev.isxander.yacl3.api.utils.Dimension;
 import dev.isxander.yacl3.api.utils.MutableDimension;
 import dev.isxander.yacl3.api.utils.OptionUtils;
@@ -19,6 +23,7 @@ import dev.isxander.yacl3.gui.tab.ListHolderWidget;
 import dev.isxander.yacl3.gui.tab.ScrollableNavigationBar;
 import dev.isxander.yacl3.gui.tab.TabExt;
 import dev.isxander.yacl3.gui.utils.GuiUtils;
+import dev.isxander.yacl3.impl.ProvidesBindingForDeprecation;
 import dev.isxander.yacl3.impl.utils.YACLConstants;
 import dev.isxander.yacl3.platform.YACLPlatform;
 import net.minecraft.client.MinecraftClient;
@@ -30,6 +35,7 @@ import net.minecraft.client.gui.tab.Tab;
 import net.minecraft.client.gui.tab.TabManager;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.CheckboxWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
@@ -41,6 +47,7 @@ import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -51,9 +58,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4fStack;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -61,7 +68,6 @@ public class ToolTransformationScreen extends YACLScreen {
     private long lastTime = 0L;
     private @Nullable DisplayPlayerEntityRenderer displayPlayerEntityRenderer;
     private DisplayPlayerRenderState playerEntityRenderState;
-    private final boolean isBelt;
     private final @NotNull MenuItemContext menuItemContext;
 
     public final TabManager tabManager = new TabManager(this::addDrawableChild, this::remove);
@@ -74,17 +80,13 @@ public class ToolTransformationScreen extends YACLScreen {
     public ControllerPopupWidget<?> currentPopupController = null;
     public boolean popupControllerVisible = false;
 
-
-    public ToolTransformationScreen(final @NotNull Screen parent, final @NotNull YetAnotherConfigLib config,
-                                    final @NotNull Text title,
-                                    final boolean isBelt,
-                                    final @NotNull Supplier<@Nullable AItemLike> itemLikeSupplier,
-                                    final @NotNull ToolTransformation.ToolTransformationBuilder toolTransformationBuilder) {
-        super(config, parent);
-        this.isBelt = isBelt;
-        this.menuItemContext = new MenuItemContext(itemLikeSupplier, toolTransformationBuilder);
-
-        OptionUtils.forEachOptions(config, (option) -> option.addListener((opt, val) -> this.onOptionChanged(opt)));
+    private ToolTransformationScreen(final @NotNull Screen parent,
+                                     final @NotNull YetAnotherConfigLib configLib,
+                                     final boolean isBelt,
+                                     final @NotNull Supplier<@Nullable AItemLike> itemLikeSupplier,
+                                     final @NotNull ToolTransformation.ToolTransformationBuilder pendingToolTransformationBuilder) {
+        super(configLib, parent);
+        this.menuItemContext = new MenuItemContext(itemLikeSupplier, pendingToolTransformationBuilder, isBelt);
 
         final @NotNull EntityRendererFactory.Context ctx = new EntityRendererFactory.Context(
             MinecraftClient.getInstance().getEntityRenderDispatcher(),
@@ -101,7 +103,6 @@ public class ToolTransformationScreen extends YACLScreen {
 
         if (clientPlayerEntity == null) {
             final GameProfile gameProfile = MinecraftClient.getInstance().getGameProfile();
-
 
             MinecraftClient.getInstance().getSkinProvider().
                 fetchSkinTextures(gameProfile).
@@ -126,16 +127,226 @@ public class ToolTransformationScreen extends YACLScreen {
         }
     }
 
-    protected void drawPlayer(int x, int y, int size, DisplayPlayerRenderState playerEntityRenderState) {
+    public static ToolTransformationScreen createToolTransformationScreen(final @NotNull Screen parent,
+                                                                          final boolean isBelt,
+                                                                          final @NotNull AItemLike initialItemLike,
+                                                                          final @NotNull ToolTransformation toolTransformation,
+                                                                          final boolean advancedMode,
+                                                                          final @NotNull Consumer<Map.Entry<AItemLike, ToolTransformation>> resultConsumer) {
+        final @NotNull AtomicReference<@NotNull AItemLike> itemLikeReference = new AtomicReference<>(initialItemLike);
+        final @NotNull ToolTransformation.ToolTransformationBuilder finalValueToolTransformationBuilder = toolTransformation.toBuilder();
+        final @NotNull ToolTransformation.ToolTransformationBuilder pendingToolTransformationBuilder = toolTransformation.toBuilder();
+        final @NotNull AtomicReference<@NotNull String> rawComponentReference = new AtomicReference<>("{}"); // todo
+
+        final Text title = isBelt ? Text.literal("belt tools") : Text.literal("back tools");
+
+        final @NotNull Option<AItemLike> ItemLikeOption = Option.<AItemLike>createBuilder().
+            name(Text.literal("item (tag)")).
+            binding(AItemLike.fromItem(Items.STONE_SWORD),
+                itemLikeReference::get,
+                itemLikeReference::set
+            ).
+            controller(ItemTagControllerBuilder::create).//description(OptionDescription.createBuilder().).
+                build();
+        final YetAnotherConfigLib configLib = YetAnotherConfigLib.createBuilder().
+            title(title).
+            category(ConfigCategory.createBuilder().
+                name(title).
+                option(ItemLikeOption).
+                optionIf(advancedMode, Option.<String>createBuilder().
+                    name(Text.literal("components")).
+                    controller(StringControllerBuilder::create).
+                    stateManager(
+                        new PendingStateManager<>(
+                            "{}", // todo
+                            rawComponentReference::get,
+                            rawComponentReference::set,
+                            (oldValue, newValue) -> {
+                                // todo
+                            }
+                        )
+                    ).build()
+                ).groupIf(advancedMode,
+                    OptionGroup.createBuilder().
+                        name(Text.literal("Offset")).
+                        option(Option.<Float>createBuilder().
+                            name(Text.literal("X")).
+                            controller(FloatFieldControllerBuilder::create).
+                            stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.offsetX(),
+                                    finalValueToolTransformationBuilder::offsetX,
+                                    finalValueToolTransformationBuilder::offsetX,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.offsetX(newValue)
+                                )
+                            ).build()
+                        ).
+                        option(Option.<Float>createBuilder().
+                            name(Text.literal("Y")).
+                            controller(FloatFieldControllerBuilder::create).
+                            stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.offsetY(),
+                                    finalValueToolTransformationBuilder::offsetY,
+                                    finalValueToolTransformationBuilder::offsetY,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.offsetY(newValue)
+                                )
+                            ).build()
+                        ).
+                        option(Option.<Float>createBuilder().
+                            name(Text.literal("Z")).
+                            controller(FloatFieldControllerBuilder::create).
+                            stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.offsetZ(),
+                                    finalValueToolTransformationBuilder::offsetZ,
+                                    finalValueToolTransformationBuilder::offsetZ,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.offsetZ(newValue)
+                                )
+                            ).build()
+                        ).build()
+                ).group(OptionGroup.createBuilder().
+                    name(Text.literal("rotation")).
+                    optionIf(advancedMode, Option.<Float>createBuilder().
+                        name(Text.literal("X")).
+                        controller(option -> FloatSliderControllerBuilder.create(option).
+                            range(0f, 360f).
+                            step(0.5f)
+                        ).stateManager(
+                            new PendingStateManager<>(
+                                finalValueToolTransformationBuilder.rotationX(),
+                                finalValueToolTransformationBuilder::rotationX,
+                                finalValueToolTransformationBuilder::rotationX,
+                                (oldValue, newValue) -> pendingToolTransformationBuilder.rotationX(newValue)
+                            )
+                        ).build()).
+                    optionIf(advancedMode, Option.<Float>createBuilder().
+                        name(Text.literal("Y")).
+                        controller(option -> FloatSliderControllerBuilder.create(option).
+                            range(0f, 360f).
+                            step(0.5f)
+                        ).stateManager(
+                            new PendingStateManager<>(
+                                finalValueToolTransformationBuilder.rotationY(),
+                                finalValueToolTransformationBuilder::rotationY,
+                                finalValueToolTransformationBuilder::rotationY,
+                                (oldValue, newValue) -> pendingToolTransformationBuilder.rotationY(newValue)
+                            )
+                        ).build()).
+                    option(Option.<Float>createBuilder().
+                        name(Text.literal("Z")).
+                        controller(option -> FloatSliderControllerBuilder.create(option).
+                            range(0f, 360f).
+                            step(0.5f)
+                        ).stateManager(
+                            new PendingStateManager<>(
+                                finalValueToolTransformationBuilder.rotationZ(),
+                                finalValueToolTransformationBuilder::rotationZ,
+                                finalValueToolTransformationBuilder::rotationZ,
+                                (oldValue, newValue) -> pendingToolTransformationBuilder.rotationZ(newValue)
+                            )
+                        ).build()).
+                    build()
+                ).groupIf(advancedMode,
+                    OptionGroup.createBuilder().
+                        name(Text.literal("Scale")).
+                        option(Option.<Float>createBuilder().
+                            name(Text.literal("X")).
+                            controller(option -> FloatFieldControllerBuilder.create(option).
+                                min(0f)
+                            ).stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.scaleX(),
+                                    finalValueToolTransformationBuilder::scaleX,
+                                    finalValueToolTransformationBuilder::scaleX,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.scaleX(newValue)
+                                )
+                            ).build()
+                        ).
+                        option(Option.<Float>createBuilder().
+                            controller(option -> FloatFieldControllerBuilder.create(option).
+                                min(0f)
+                            ).controller(FloatFieldControllerBuilder::create).
+                            stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.scaleY(),
+                                    finalValueToolTransformationBuilder::scaleY,
+                                    finalValueToolTransformationBuilder::scaleY,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.scaleY(newValue)
+                                )
+                            ).build()
+                        ).
+                        option(Option.<Float>createBuilder().
+                            name(Text.literal("Z")).
+                            controller(option -> FloatFieldControllerBuilder.create(option).
+                                min(0f)
+                            ).stateManager(
+                                new PendingStateManager<>(
+                                    finalValueToolTransformationBuilder.scaleZ(),
+                                    finalValueToolTransformationBuilder::scaleZ,
+                                    finalValueToolTransformationBuilder::scaleZ,
+                                    (oldValue, newValue) -> pendingToolTransformationBuilder.scaleZ(newValue)
+                                )
+                            ).build()
+                        ).build()
+                ).optionIf(advancedMode, Option.<Boolean>createBuilder().
+                    name(Text.literal("is symmetric")).
+                    controller(option -> BooleanControllerBuilder.create(option).
+                        trueFalseFormatter()
+                    ).stateManager(
+                        new PendingStateManager<>(
+                            finalValueToolTransformationBuilder.isSymmetric(),
+                            finalValueToolTransformationBuilder::isSymmetric,
+                            finalValueToolTransformationBuilder::isSymmetric,
+                            (oldValue, newValue) -> pendingToolTransformationBuilder.isSymmetric(newValue)
+                        )
+                    ).build()
+                ).option(Option.<Boolean>createBuilder().
+                    name(Text.literal("is blacklisted")).
+                    controller(option -> BooleanControllerBuilder.create(option).
+                        trueFalseFormatter()
+                    ).stateManager(
+                        new PendingStateManager<>(
+                            finalValueToolTransformationBuilder.isBlacklisted(),
+                            finalValueToolTransformationBuilder::isBlacklisted,
+                            finalValueToolTransformationBuilder::isBlacklisted,
+                            (oldValue, newValue) -> pendingToolTransformationBuilder.isBlacklisted(newValue)
+                        )
+                    ).build()
+                ).build()
+            ).save(() -> resultConsumer.accept(Map.entry(itemLikeReference.get(), finalValueToolTransformationBuilder.build()))).
+            build();
+
+        return new ToolTransformationScreen(parent, configLib, isBelt, ItemLikeOption::pendingValue, pendingToolTransformationBuilder);
+    }
+
+    protected void init() {
+        this.tabArea = new ScreenRect(0, 23, this.width, this.height - 24 + 1);
+        int currentTab = this.tabNavigationBar != null ? this.tabNavigationBar.getTabs().indexOf(this.tabManager.getCurrentTab()) : 0;
+        if (currentTab == -1) {
+            currentTab = 0;
+        }
+
+        this.tabNavigationBar = new ScrollableNavigationBar(this.width, this.tabManager,
+            this.config.categories().stream().map(
+                (category) -> new CategoryTab(this, category, this.tabArea)
+            ).toList());
+        this.tabNavigationBar.selectTab(currentTab, false);
+        this.tabNavigationBar.init();
+        this.tabManager.setTabArea(this.tabArea);
+        this.addDrawableChild(this.tabNavigationBar);
+        this.config.initConsumer().accept(this);
+    }
+
+    protected void drawPlayer(final int x, final int y, final int size, final @NotNull DisplayPlayerRenderState playerEntityRenderState) {
         if (displayPlayerEntityRenderer == null) { // skin still loading
             return;
         }
 
-        Matrix4fStack matrixStack = RenderSystem.getModelViewStack();
+        Matrix4fStack matrixStack = RenderSystem.getModelViewStack(); // todo remove
         matrixStack.pushMatrix();
         matrixStack.translate(x, y, 1050.0f);
         matrixStack.scale(1.0f, 1.0f, -1.0f);
-//        RenderSystem.applyModelViewMatrix()
         MatrixStack matrixStack2 = new  MatrixStack();
         matrixStack2.translate(0.0, 0.0, 1000.0);
         matrixStack2.scale(size, size, size);
@@ -151,7 +362,6 @@ public class ToolTransformationScreen extends YACLScreen {
         immediate.draw();
         entityRenderDispatcher.setRenderShadows(true);
         matrixStack.popMatrix();
-//        RenderSystem.applyModelViewMatrix()
         DiffuseLighting.enableGuiDepthLighting();
     }
 
@@ -185,21 +395,6 @@ public class ToolTransformationScreen extends YACLScreen {
 
         return this.getFocused() != null && this.isDragging() && (button == 0 || button == 1) &&
             this.getFocused().mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
-
-    protected void init() {
-        this.tabArea = new ScreenRect(0, 23, this.width, this.height - 24 + 1);
-        int currentTab = this.tabNavigationBar != null ? this.tabNavigationBar.getTabs().indexOf(this.tabManager.getCurrentTab()) : 0;
-        if (currentTab == -1) {
-            currentTab = 0;
-        }
-
-        this.tabNavigationBar = new ScrollableNavigationBar(this.width, this.tabManager, this.config.categories().stream().map((category) -> new CategoryTab(this, category, this.tabArea)).toList());
-        this.tabNavigationBar.selectTab(currentTab, false);
-        this.tabNavigationBar.init();
-        this.tabManager.setTabArea(this.tabArea);
-        this.addDrawableChild(this.tabNavigationBar);
-        this.config.initConsumer().accept(this);
     }
 
     public void addPopupControllerWidget(ControllerPopupWidget<?> controllerPopupWidget) {
@@ -324,7 +519,7 @@ public class ToolTransformationScreen extends YACLScreen {
         return this.pendingChanges;
     }
 
-    private void onOptionChanged(Option<?> option) {
+    private void onOptionChanged(Option<?> option) { // todo
         this.pendingChanges = false;
         OptionUtils.consumeOptions(this.config, (opt) -> {
             this.pendingChanges |= opt.changed();
@@ -344,25 +539,27 @@ public class ToolTransformationScreen extends YACLScreen {
             return true;
         }
     }
+
 //
 //    public void close() {
 //        this.client.setScreen(this.parent);
 //    }
 
     public static class CategoryTab implements TabExt {
-        private static final Identifier DARKER_BG = YACLPlatform.mcRl("textures/gui/menu_list_background.png");
-        private final YACLScreen screen;
-        private final ConfigCategory category;
-        private final Tooltip tooltip;
-        private ListHolderWidget<OptionListWidget> optionList;
-        public final ButtonWidget saveFinishedButton;
-        public final ButtonWidget cancelResetButton;
-        public final ButtonWidget undoButton;
-        private final SearchFieldWidget searchField;
-        private OptionDescriptionWidget descriptionWidget;
-        private final ScreenRect rightPaneDim;
+        private static final @NotNull Identifier DARKER_BG = YACLPlatform.mcRl("textures/gui/menu_list_background.png");
+        private final @NotNull ToolTransformationScreen screen;
+        private final @NotNull ConfigCategory category;
+        private final @NotNull Tooltip tooltip;
+        private @NotNull ListHolderWidget<@NotNull OptionListWidget> optionList;
+        private final @NotNull ButtonWidget saveFinishedButton;
+        private final @NotNull ButtonWidget cancelResetButton;
+        private final @NotNull ButtonWidget undoButton;
+        private final @NotNull CheckboxWidget offhandCheckbox;
+        private final @NotNull SearchFieldWidget searchField;
+        private @NotNull OptionDescriptionWidget descriptionWidget;
+        private final @NotNull ScreenRect rightPaneDim;
 
-        public CategoryTab(YACLScreen screen, ConfigCategory category, ScreenRect tabArea) {
+        public CategoryTab(final @NotNull ToolTransformationScreen screen, final @NotNull ConfigCategory category, final @NotNull ScreenRect tabArea) {
             this.screen = screen;
             this.category = category;
             this.tooltip = Tooltip.of(category.tooltip());
@@ -370,39 +567,86 @@ public class ToolTransformationScreen extends YACLScreen {
             int padding = columnWidth / 20;
             columnWidth = Math.min(columnWidth, 400);
             int paddedWidth = columnWidth - padding * 2;
-            this.rightPaneDim = new ScreenRect(screen.width / 3 * 2, tabArea.getTop() + 1, screen.width / 3, tabArea.height());
+
+            rightPaneDim = new ScreenRect(screen.width / 3 * 2, tabArea.getTop() + 1, screen.width / 3, tabArea.height());
             MutableDimension<Integer> actionDim = Dimension.ofInt(screen.width / 3 * 2 + screen.width / 6, screen.height - padding - 20, paddedWidth, 20);
-            this.saveFinishedButton = ButtonWidget.builder(Text.literal("Done"), (btn) -> screen.finishOrSave()).position(actionDim.x() - actionDim.width() / 2, actionDim.y()).size(actionDim.width(), actionDim.height()).build();
-            actionDim.expand(-(Integer)actionDim.width() / 2 - 2, 0).move(-(Integer)actionDim.width() / 2 - 2, -22);
-            this.cancelResetButton = ButtonWidget.builder(Text.literal("Cancel"), (btn) -> screen.cancelOrReset()).position(actionDim.x() - actionDim.width() / 2, actionDim.y()).size(actionDim.width(), actionDim.height()).build();
+
+            saveFinishedButton = ButtonWidget.builder(Text.literal("Done"), btn -> screen.finishOrSave())
+                .position(actionDim.x() - actionDim.width() / 2, actionDim.y())
+                .size(actionDim.width(), actionDim.height())
+                .build();
+
+            actionDim.expand(-actionDim.width() / 2 - 2, 0).
+                move(-actionDim.width() / 2 - 2, -22);
+            cancelResetButton = ButtonWidget.builder(Text.literal("Cancel"), btn -> screen.cancelOrReset())
+                .position(actionDim.x() - actionDim.width() / 2, actionDim.y())
+                .size(actionDim.width(), actionDim.height())
+                .build();
+
             actionDim.move(actionDim.width() + 4, 0);
-            this.undoButton = ButtonWidget.builder(Text.translatable("yacl.gui.undo"), (btn) -> screen.undo()).position(actionDim.x() - actionDim.width() / 2, actionDim.y()).size(actionDim.width(), actionDim.height()).tooltip(Tooltip.of(Text.translatable("yacl.gui.undo.tooltip"))).build();
-            this.searchField = new SearchFieldWidget(screen, screen.getTextRenderer(), screen.width / 3 * 2 + screen.width / 6 - paddedWidth / 2 + 1, this.undoButton.getY() - 22, paddedWidth - 2, 18, Text.translatable("gui.recipebook.search_hint"), Text.translatable("gui.recipebook.search_hint"), (searchQuery) -> this.optionList.getList().updateSearchQuery(searchQuery));
-            this.optionList = new ListHolderWidget<>(() -> new ScreenRect(tabArea.position(), tabArea.width() / 3 * 2, tabArea.height()), new OptionListWidget(screen, category, MinecraftClient.getInstance(), 0, 0, screen.width / 3 * 2 + 1, screen.height, (desc) -> this.descriptionWidget.setOptionDescription(desc)));
-            this.descriptionWidget = new OptionDescriptionWidget(() ->
-                new ScreenRect(
+            undoButton = ButtonWidget.builder(Text.translatable("yacl.gui.undo"), btn -> screen.undo())
+                .position(actionDim.x() - actionDim.width() / 2, actionDim.y())
+                .size(actionDim.width(), actionDim.height())
+                .tooltip(Tooltip.of(Text.translatable("yacl.gui.undo.tooltip")))
+                .build();
+
+            searchField = new SearchFieldWidget(
+                screen,
+                screen.getTextRenderer(),
+                screen.width / 3 * 2 + screen.width / 6 - paddedWidth / 2 + 1,
+                undoButton.getY() - 22,
+                paddedWidth - 2, 18,
+                Text.translatable("gui.recipebook.search_hint"),
+                Text.translatable("gui.recipebook.search_hint"),
+                searchQuery -> optionList.getList().updateSearchQuery(searchQuery)
+            );
+
+            offhandCheckbox = CheckboxWidget.builder(
+                Text.literal("Offhand"),
+                screen.getTextRenderer()
+                ).checked(screen.menuItemContext.isOffhand()).
+                callback((checkboxWidget, newValue) -> screen.menuItemContext.setOffhand(newValue)).
+                pos(
+                    screen.width / 3 * 2 + screen.width / 6 - paddedWidth / 2 + 1,
+                    searchField.getY() - searchField.getHeight() - 2
+                ).build();
+
+            this.optionList = new ListHolderWidget<>(
+                () -> new ScreenRect(tabArea.position(), tabArea.width() / 3 * 2, tabArea.height()),
+                new OptionListWidget(screen, category,
+                    MinecraftClient.getInstance(), 0, 0,
+                    screen.width / 3 * 2 + 1, screen.height,
+                    desc -> descriptionWidget.setOptionDescription(desc))
+            );
+
+            descriptionWidget = new OptionDescriptionWidget(
+                () -> new ScreenRect(
                     screen.width / 3 * 2 + padding,
                     tabArea.getTop() + padding,
                     paddedWidth,
-                    this.searchField.getY() - 1 - tabArea.getTop() - padding * 2
-                ), null);
+                    offhandCheckbox.getY() - 1 - tabArea.getTop() - padding * 2
+                ),
+                null
+            );
+
             this.updateButtons();
         }
 
-        public Text getTitle() {
+        public @NotNull Text getTitle() {
             return this.category.name();
         }
 
-        public void forEachChild(Consumer<ClickableWidget> consumer) {
-            consumer.accept(this.optionList);
-            consumer.accept(this.saveFinishedButton);
-            consumer.accept(this.cancelResetButton);
-            consumer.accept(this.undoButton);
-            consumer.accept(this.searchField);
-            consumer.accept(this.descriptionWidget);
+        public void forEachChild(final @NotNull Consumer<@NotNull ClickableWidget> consumer) {
+            consumer.accept(optionList);
+            consumer.accept(saveFinishedButton);
+            consumer.accept(cancelResetButton);
+            consumer.accept(undoButton);
+            consumer.accept(searchField);
+            consumer.accept(offhandCheckbox);
+            consumer.accept(descriptionWidget);
         }
 
-        public void renderBackground(DrawContext graphics) {
+        public void renderBackground(final @NotNull DrawContext graphics) {
             GuiUtils.blitGuiTex(graphics, DARKER_BG, this.rightPaneDim.getLeft(), this.rightPaneDim.getTop(), (float)(this.rightPaneDim.getRight() + 2), (float)(this.rightPaneDim.getBottom() + 2), this.rightPaneDim.width() + 2, this.rightPaneDim.height() + 2, 32, 32);
             graphics.getMatrices().push();
             graphics.getMatrices().translate(0.0F, 0.0F, 10.0F);
@@ -422,12 +666,12 @@ public class ToolTransformationScreen extends YACLScreen {
             this.descriptionWidget.tick();
         }
 
-        public @Nullable Tooltip getTooltip() {
+        public @NotNull Tooltip getTooltip() {
             return this.tooltip;
         }
 
         public void updateButtons() {
-            boolean pendingChanges = this.screen.pendingChanges();
+            boolean pendingChanges = screen.pendingChanges();
             this.undoButton.active = pendingChanges;
             this.saveFinishedButton.setMessage(pendingChanges ? Text.translatable("yacl.gui.save") : GuiUtils.translatableFallback("yacl.gui.done", ScreenTexts.DONE));
             this.saveFinishedButton.setTooltip(new YACLTooltip(pendingChanges ? Text.translatable("yacl.gui.save.tooltip") : Text.translatable("yacl.gui.finished.tooltip"), this.saveFinishedButton));
@@ -436,31 +680,47 @@ public class ToolTransformationScreen extends YACLScreen {
         }
     }
 
-    public class MenuItemContext implements IItemContext, ToolTransformationFetcher {
+    public static class MenuItemContext implements IItemContext, ToolTransformationFetcher {
         private final @NotNull Supplier<@Nullable AItemLike> itemLikeSupplier;
         private final @NotNull ToolTransformation.ToolTransformationBuilder toolTransformationBuilder;
+        private final boolean isBelt;
+        private boolean isOffhand = false;
 
         public MenuItemContext(final @NotNull Supplier<@Nullable AItemLike> itemLikeSupplier,
-                               final @NotNull ToolTransformation.ToolTransformationBuilder toolTransformationBuilder) {
+                               final @NotNull ToolTransformation.ToolTransformationBuilder toolTransformationBuilder,
+                               final boolean isBelt) {
             this.itemLikeSupplier = itemLikeSupplier;
             this.toolTransformationBuilder = toolTransformationBuilder;
+            this.isBelt = isBelt;
         }
 
         @Override
         public boolean isValid() {
             final @Nullable AItemLike itemLike = itemLikeSupplier.get();
 
-            return itemLike != null && !itemLike.isInvalid() && !toolTransformationBuilder.isInvalid();
+            return itemLike != null && !itemLike.isInvalid() && toolTransformationBuilder.isValid();
         }
 
         @Override
         public @NotNull ItemStack getMainHandStack() {
-            return null;
+            final @Nullable AItemLike itemLike = itemLikeSupplier.get();
+
+            if (isOffhand || itemLike == null || itemLike.isInvalid()) {
+                return ItemStack.EMPTY;
+            } else {
+                return toolTransformationBuilder.build().createStack(itemLike.getDisplayItem());
+            }
         }
 
         @Override
         public @NotNull ItemStack getOffHandStack() {
-            return null;
+            final @Nullable AItemLike itemLike = itemLikeSupplier.get();
+
+            if (!isOffhand || itemLike == null || itemLike.isInvalid()) {
+                return ItemStack.EMPTY;
+            } else {
+                return toolTransformationBuilder.createStack(itemLike.getDisplayItem());
+            }
         }
 
         @Override
@@ -471,6 +731,102 @@ public class ToolTransformationScreen extends YACLScreen {
         @Override
         public @Nullable ToolTransformation getBeltTransformation(@NotNull ItemStack stack) {
             return isBelt ? toolTransformationBuilder.build() : null;
+        }
+
+        public boolean isOffhand() {
+            return isOffhand;
+        }
+
+        public void setOffhand(boolean offhand) {
+            isOffhand = offhand;
+        }
+    }
+
+    private static class PendingStateManager<T extends @Nullable Object> implements StateManager<T>, ProvidesBindingForDeprecation<T> {
+        private final T def;
+        private final @NotNull Supplier<T> getter;
+        private final @NotNull Consumer<T> setter;
+        private @NotNull StateManager.StateListener<T> stateListener;
+
+        private T pendingValue;
+        private final@NotNull Binding<T> binding;
+
+        public PendingStateManager(final T def, final @NotNull Supplier<T> getter, final @NotNull Consumer<T> setter,
+                                   final @NotNull StateManager.StateListener<T> stateListener) {
+            this.def = def;
+            this.getter = getter;
+            this.setter = setter;
+            this.stateListener = stateListener;
+
+            this.pendingValue = getter.get();
+
+            // even though this manager isn't build on top of a Binding, like Xanders are,
+            // we still need to provide one
+            this.binding = new Binding<>() {
+                @Override
+                public void setValue(T value) {
+                    setter.accept(value);
+                }
+
+                @Override
+                public T getValue() {
+                    return getter.get();
+                }
+
+                @Override
+                public T defaultValue() {
+                    return def;
+                }
+            };
+        }
+
+        @Override
+        public void set(T value) {
+            boolean changed = !Objects.equals(this.pendingValue, value);
+            this.pendingValue = value;
+            if (changed) {
+                this.stateListener.onStateChange(this.pendingValue, value);
+            }
+        }
+
+        @Override
+        public T get() {
+            return this.pendingValue;
+        }
+
+        @Override
+        public void apply() {
+            this.setter.accept(pendingValue);
+        }
+
+        @Override
+        public void resetToDefault(ResetAction resetAction) {
+            this.set(def);
+        }
+
+        @Override
+        public void sync() {
+            this.set(this.getter.get());
+        }
+
+        @Override
+        public boolean isSynced() {
+            return Objects.equals(this.getter.get(), this.pendingValue);
+        }
+
+        @Override
+        public boolean isDefault() {
+            return Objects.equals(def, this.pendingValue);
+        }
+
+        @Override
+        public void addListener(StateListener<T> stateListener) {
+            this.stateListener = this.stateListener.andThen(stateListener);
+        }
+
+        @Override
+        public @NotNull Binding<T> getBinding() {
+            return binding;
         }
     }
 }
