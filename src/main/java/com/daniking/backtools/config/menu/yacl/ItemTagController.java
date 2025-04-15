@@ -42,7 +42,7 @@ public class ItemTagController extends AbstractDropdownController<AItemLike> {
         return BackTools.getConfigHandler().readAllFittingItems(value).stream().skip(offset).findFirst().map(AItemLike::toString).orElseGet(this::getString);
     }
 
-    public AbstractWidget provideWidget(final @NotNull YACLScreen screen, final @NotNull Dimension<Integer> widgetDimension) {
+    public @NotNull AbstractWidget provideWidget(final @NotNull YACLScreen screen, final @NotNull Dimension<Integer> widgetDimension) {
         return new ItemTagControllerElement(this, screen, widgetDimension);
     }
 }

@@ -1,0 +1,4 @@
+todo: somehow the armor of the player doesn't render
+todo: saving the config values doesn't work (advanced doesn't save and the ToolTransformationScreen doesn't even recolonize anything changed!)
+todo: clean up. there are some code doubling and quirks
+todo: integrate our PlayerRenderer into a Widget, so it can be focused, scaled with the window, and work nicely together with optionDescriptions instead of rendering over anything and always respond to dragging

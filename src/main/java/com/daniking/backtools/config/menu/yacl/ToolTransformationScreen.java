@@ -23,8 +23,6 @@ import dev.isxander.yacl3.gui.tab.ListHolderWidget;
 import dev.isxander.yacl3.gui.tab.ScrollableNavigationBar;
 import dev.isxander.yacl3.gui.tab.TabExt;
 import dev.isxander.yacl3.gui.utils.GuiUtils;
-import dev.isxander.yacl3.impl.ProvidesBindingForDeprecation;
-import dev.isxander.yacl3.impl.utils.YACLConstants;
 import dev.isxander.yacl3.platform.YACLPlatform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -32,7 +30,6 @@ import net.minecraft.client.gui.ScreenRect;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.world.CreateWorldScreen;
 import net.minecraft.client.gui.tab.Tab;
-import net.minecraft.client.gui.tab.TabManager;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.CheckboxWidget;
@@ -50,7 +47,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -70,15 +66,7 @@ public class ToolTransformationScreen extends YACLScreen {
     private DisplayPlayerRenderState playerEntityRenderState;
     private final @NotNull MenuItemContext menuItemContext;
 
-    public final TabManager tabManager = new TabManager(this::addDrawableChild, this::remove);
-    public ScrollableNavigationBar tabNavigationBar;
-    public ScreenRect tabArea;
-    public Text saveButtonMessage;
-    public Tooltip saveButtonTooltipMessage;
     private int saveButtonMessageTime;
-    private boolean pendingChanges;
-    public ControllerPopupWidget<?> currentPopupController = null;
-    public boolean popupControllerVisible = false;
 
     private ToolTransformationScreen(final @NotNull Screen parent,
                                      final @NotNull YetAnotherConfigLib configLib,
@@ -87,6 +75,8 @@ public class ToolTransformationScreen extends YACLScreen {
                                      final @NotNull ToolTransformation.ToolTransformationBuilder pendingToolTransformationBuilder) {
         super(configLib, parent);
         this.menuItemContext = new MenuItemContext(itemLikeSupplier, pendingToolTransformationBuilder, isBelt);
+
+        OptionUtils.forEachOptions(config, (option) -> option.addListener((opt, val) -> this.onOptionChanged(opt)));
 
         final @NotNull EntityRendererFactory.Context ctx = new EntityRendererFactory.Context(
             MinecraftClient.getInstance().getEntityRenderDispatcher(),
@@ -146,8 +136,8 @@ public class ToolTransformationScreen extends YACLScreen {
                 itemLikeReference::get,
                 itemLikeReference::set
             ).
-            controller(ItemTagControllerBuilder::create).//description(OptionDescription.createBuilder().).
-                build();
+            customController(ItemTagController::new).//description(OptionDescription.createBuilder().).
+            build();
         final YetAnotherConfigLib configLib = YetAnotherConfigLib.createBuilder().
             title(title).
             category(ConfigCategory.createBuilder().
@@ -264,6 +254,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).
                         option(Option.<Float>createBuilder().
+                            name(Text.literal("Y")).
                             controller(option -> FloatFieldControllerBuilder.create(option).
                                 min(0f)
                             ).controller(FloatFieldControllerBuilder::create).
@@ -320,6 +311,7 @@ public class ToolTransformationScreen extends YACLScreen {
         return new ToolTransformationScreen(parent, configLib, isBelt, ItemLikeOption::pendingValue, pendingToolTransformationBuilder);
     }
 
+    @Override
     protected void init() {
         this.tabArea = new ScreenRect(0, 23, this.width, this.height - 24 + 1);
         int currentTab = this.tabNavigationBar != null ? this.tabNavigationBar.getTabs().indexOf(this.tabManager.getCurrentTab()) : 0;
@@ -389,21 +381,22 @@ public class ToolTransformationScreen extends YACLScreen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) { // todo only if over player widget
-        super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
         playerEntityRenderState.bodyYaw = (float) (playerEntityRenderState.bodyYaw - deltaX * 1.2F); // don't worry about wrapping around back to 0-360°, it will get used in sin/cos anyway.
         playerEntityRenderState.bodyPitch = MathHelper.clamp(playerEntityRenderState.bodyPitch + (float)deltaY, -50.0F, 50.0F);
 
-        return this.getFocused() != null && this.isDragging() && (button == 0 || button == 1) &&
-            this.getFocused().mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
-    public void addPopupControllerWidget(ControllerPopupWidget<?> controllerPopupWidget) {
-        if (this.currentPopupController != null) {
-            this.clearPopupControllerWidget();
-        }
+    @Override
+    public void setSaveButtonMessage(final @NotNull Text message, final @NotNull Text tooltip) {
+        super.setSaveButtonMessage(message, tooltip);
+        this.saveButtonMessageTime = 0;
+    }
 
-        this.currentPopupController = controllerPopupWidget;
-        this.popupControllerVisible = true;
+    @Override
+    public void addPopupControllerWidget(final @NotNull ControllerPopupWidget<?> controllerPopupWidget) {
+        super.addPopupControllerWidget(controllerPopupWidget);
+
         OptionListWidget optionListWidget = null;
         Tab var4 = this.tabNavigationBar.getTabManager().getCurrentTab();
         if (var4 instanceof CategoryTab categoryTab) {
@@ -415,74 +408,24 @@ public class ToolTransformationScreen extends YACLScreen {
         }
     }
 
-    public void clearPopupControllerWidget() {
-        Screen var2 = MinecraftClient.getInstance().currentScreen;
-        if (var2 instanceof PopupControllerScreen popupControllerScreen) {
-            popupControllerScreen.close();
-        }
-
-        this.popupControllerVisible = false;
-        this.currentPopupController = null;
-    }
-
-    public void renderBackground(DrawContext guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-        Tab var6 = this.tabManager.getCurrentTab();
-        if (var6 instanceof TabExt tab) {
-            tab.renderBackground(guiGraphics);
-        }
-    }
-
+    @Override
     public void finishOrSave() {
-        this.saveButtonMessage = null;
-        if (this.pendingChanges()) {
-            Set<OptionFlag> flags = new HashSet<>();
-            OptionUtils.forEachOptions(this.config, (option) -> {
-                if (option.applyValue()) {
-                    flags.addAll(option.flags());
-                }
+        final boolean pending = this.pendingChanges();
 
-            });
-            OptionUtils.forEachOptions(this.config, (option) -> {
-                if (option.changed()) {
-                    option.forgetPendingValue();
-                    YACLConstants.LOGGER.error("Option '{}' value mismatch after applying! Reset to binding's getter.", option.name().getString());
-                }
+        super.finishOrSave();
 
-            });
-            this.config.saveFunction().run();
-            flags.forEach((flag) -> flag.accept(this.client));
-            this.pendingChanges = false;
-            Tab var3 = this.tabManager.getCurrentTab();
-            if (var3 instanceof YACLScreen.CategoryTab categoryTab) {
+        if (pending) {
+            if (this.tabManager.getCurrentTab() instanceof CategoryTab categoryTab) {
                 categoryTab.updateButtons();
             }
-        } else {
-            this.close();
         }
     }
 
-    public void cancelOrReset() {
-        if (this.pendingChanges()) {
-            OptionUtils.forEachOptions(this.config, Option::forgetPendingValue);
-            this.close();
-        } else {
-            OptionUtils.forEachOptions(this.config, Option::requestSetDefault);
-        }
-    }
-
-    public void undo() {
-        OptionUtils.forEachOptions(this.config, Option::forgetPendingValue);
-    }
-
+    @Override
     public void tick() {
-        Tab var2 = this.tabManager.getCurrentTab();
-        if (var2 instanceof TabExt tabExt) {
-            tabExt.tick();
-        }
+        super.tick();
 
-        var2 = this.tabManager.getCurrentTab();
-        if (var2 instanceof YACLScreen.CategoryTab categoryTab) {
+        if (this.tabManager.getCurrentTab() instanceof CategoryTab categoryTab) {
             if (this.saveButtonMessage != null) {
                 if (this.saveButtonMessageTime > 140) {
                     this.saveButtonMessage = null;
@@ -497,67 +440,27 @@ public class ToolTransformationScreen extends YACLScreen {
                 }
             }
         }
-
     }
 
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) {
-            this.setDragging(true);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    public void setSaveButtonMessage(Text message, Text tooltip) {
-        this.saveButtonMessage = message;
-        this.saveButtonTooltipMessage = Tooltip.of(tooltip);
-        this.saveButtonMessageTime = 0;
-    }
-
-    public boolean pendingChanges() {
-        return this.pendingChanges;
-    }
-
-    private void onOptionChanged(Option<?> option) { // todo
-        this.pendingChanges = false;
-        OptionUtils.consumeOptions(this.config, (opt) -> {
-            this.pendingChanges |= opt.changed();
-            return this.pendingChanges;
-        });
-        Tab var3 = this.tabManager.getCurrentTab();
-        if (var3 instanceof YACLScreen.CategoryTab categoryTab) {
+    protected void onOptionChanged(Option<?> option) {
+        if (tabManager.getCurrentTab() instanceof CategoryTab categoryTab) {
             categoryTab.updateButtons();
         }
     }
 
-    public boolean shouldCloseOnEsc() {
-        if (this.pendingChanges()) {
-            this.setSaveButtonMessage(Text.translatable("yacl.gui.save_before_exit").formatted(Formatting.RED), Text.translatable("yacl.gui.save_before_exit.tooltip"));
-            return false;
-        } else {
-            return true;
-        }
-    }
-
-//
-//    public void close() {
-//        this.client.setScreen(this.parent);
-//    }
-
     public static class CategoryTab implements TabExt {
-        private static final @NotNull Identifier DARKER_BG = YACLPlatform.mcRl("textures/gui/menu_list_background.png");
-        private final @NotNull ToolTransformationScreen screen;
-        private final @NotNull ConfigCategory category;
-        private final @NotNull Tooltip tooltip;
-        private @NotNull ListHolderWidget<@NotNull OptionListWidget> optionList;
-        private final @NotNull ButtonWidget saveFinishedButton;
-        private final @NotNull ButtonWidget cancelResetButton;
-        private final @NotNull ButtonWidget undoButton;
-        private final @NotNull CheckboxWidget offhandCheckbox;
-        private final @NotNull SearchFieldWidget searchField;
-        private @NotNull OptionDescriptionWidget descriptionWidget;
-        private final @NotNull ScreenRect rightPaneDim;
+        protected static final @NotNull Identifier DARKER_BG = YACLPlatform.mcRl("textures/gui/menu_list_background.png");
+        protected final @NotNull ToolTransformationScreen screen;
+        protected final @NotNull ConfigCategory category;
+        protected final @NotNull Tooltip tooltip;
+        protected @NotNull ListHolderWidget<@NotNull OptionListWidget> optionList;
+        protected final @NotNull ButtonWidget saveFinishedButton;
+        protected final @NotNull ButtonWidget cancelResetButton;
+        protected final @NotNull ButtonWidget undoButton;
+        protected final @NotNull CheckboxWidget offhandCheckbox;
+        protected final @NotNull SearchFieldWidget searchField;
+        protected @NotNull OptionDescriptionWidget descriptionWidget;
+        protected final @NotNull ScreenRect rightPaneDim;
 
         public CategoryTab(final @NotNull ToolTransformationScreen screen, final @NotNull ConfigCategory category, final @NotNull ScreenRect tabArea) {
             this.screen = screen;
@@ -742,14 +645,13 @@ public class ToolTransformationScreen extends YACLScreen {
         }
     }
 
-    private static class PendingStateManager<T extends @Nullable Object> implements StateManager<T>, ProvidesBindingForDeprecation<T> {
+    private static class PendingStateManager<T extends @Nullable Object> implements StateManager<T> {
         private final T def;
         private final @NotNull Supplier<T> getter;
         private final @NotNull Consumer<T> setter;
         private @NotNull StateManager.StateListener<T> stateListener;
 
         private T pendingValue;
-        private final@NotNull Binding<T> binding;
 
         public PendingStateManager(final T def, final @NotNull Supplier<T> getter, final @NotNull Consumer<T> setter,
                                    final @NotNull StateManager.StateListener<T> stateListener) {
@@ -759,25 +661,6 @@ public class ToolTransformationScreen extends YACLScreen {
             this.stateListener = stateListener;
 
             this.pendingValue = getter.get();
-
-            // even though this manager isn't build on top of a Binding, like Xanders are,
-            // we still need to provide one
-            this.binding = new Binding<>() {
-                @Override
-                public void setValue(T value) {
-                    setter.accept(value);
-                }
-
-                @Override
-                public T getValue() {
-                    return getter.get();
-                }
-
-                @Override
-                public T defaultValue() {
-                    return def;
-                }
-            };
         }
 
         @Override
@@ -822,11 +705,6 @@ public class ToolTransformationScreen extends YACLScreen {
         @Override
         public void addListener(StateListener<T> stateListener) {
             this.stateListener = this.stateListener.andThen(stateListener);
-        }
-
-        @Override
-        public @NotNull Binding<T> getBinding() {
-            return binding;
         }
     }
 }

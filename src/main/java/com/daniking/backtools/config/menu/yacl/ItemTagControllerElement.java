@@ -45,7 +45,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         }
     }
 
-    private @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> getMatchingItemIdentifiers(String value) {
+    private @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> getMatchingItemIdentifiers(final String value) {
         final @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> result = new LinkedHashMap<>();
 
         // register the tickables in the ticker and map the identifiers to string.

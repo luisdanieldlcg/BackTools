@@ -99,23 +99,6 @@ public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractCl
         }
 
         matrixStack.pop();
-//        matrixStack.push();
-//
-//        matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f - playerEntityRenderState.bodyYaw));
-//        matrixStack.scale(-1.0f, -1.0f, 1.0f);
-//        matrixStack.translate(0.0f, -1.501f, 0.0f);
-//
-//
-//        model.setAngles(playerEntityRenderState);
-//
-//        RenderLayer renderLayer = this.model.getLayer(playerEntityRenderState.skinTextures.texture());
-//        VertexConsumer vertexConsumer1 = vertexConsumerProvider.getBuffer(renderLayer);
-//        int overlay = OverlayTexture.packUv(OverlayTexture.getU(0f), OverlayTexture.getV(false));
-//        model.render(matrixStack, vertexConsumer1, light, overlay);
-//
-//
-//
-//        matrixStack.pop();
     }
 
     @Override
@@ -316,7 +299,7 @@ public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractCl
         playerEntityRenderState.activeHand = Hand.MAIN_HAND;
 
         playerEntityRenderState.pitch = 0.0f;
-        playerEntityRenderState.bodyYaw = 180;
+        playerEntityRenderState.bodyYaw = 0.0f;
         playerEntityRenderState.relativeHeadYaw = 0;
 
         return playerEntityRenderState;
