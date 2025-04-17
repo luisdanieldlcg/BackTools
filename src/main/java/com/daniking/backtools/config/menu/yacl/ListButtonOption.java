@@ -158,12 +158,8 @@ public class ListButtonOption implements ListOptionEntry<Map.Entry<AItemLike, To
             return Text.literal(stringValue());
         }
 
-        public @NotNull String stringValue() { // todo doesn't work for everything else
-            if (entry.pendingValue() instanceof Map.Entry<?, ?> map) {
-                return map.getKey().toString();
-            }
-
-            return entry.pendingValue().toString();
+        public @NotNull String stringValue() {
+            return entry.pendingValue().getKey().toString();
         }
 
         @Override

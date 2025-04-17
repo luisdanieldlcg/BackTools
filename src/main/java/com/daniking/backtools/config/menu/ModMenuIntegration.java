@@ -9,6 +9,7 @@ import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import dev.isxander.yacl3.api.ConfigCategory;
 import dev.isxander.yacl3.api.Option;
+import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
 import net.fabricmc.api.EnvType;
@@ -27,13 +28,16 @@ public class ModMenuIntegration implements ModMenuApi {
         BackTools.getConfigHandler().reload(true); // make sure the config is loaded and on the up to date#
 
         return parent -> YetAnotherConfigLib.createBuilder().
-            title(Text.literal("BackTools config")).
+            title(Text.translatable("menu.title")).
             category(
                 ConfigCategory.createBuilder().
-                    name(Text.literal("general")).
+                    name(Text.translatable("menu.category.general.title")).
                     option(Option.<Boolean>createBuilder().
-                        name(Text.literal("Render with capes")).
-                        binding(
+                        name(Text.translatable("menu.category.general.option.renderWithCapes.name")).
+                        description(OptionDescription.createBuilder().
+                            text(Text.translatable("menu.category.general.option.renderWithCapes.description")).
+                            build()
+                        ).binding(
                             false,
                             () -> BackTools.getConfigHandler().shouldRenderWithCapes(),
                             shouldRenderWithCapes -> BackTools.getConfigHandler().shouldRenderWithCapes(shouldRenderWithCapes)
@@ -42,8 +46,11 @@ public class ModMenuIntegration implements ModMenuApi {
                                 onOffFormatter()
                         ).build()
                     ).option(Option.<Boolean>createBuilder().
-                        name(Text.literal("HelicopterMode")).
-                        binding(
+                        name(Text.translatable("menu.category.general.option.helicopterMode.name")).
+                        description(OptionDescription.createBuilder().
+                            text(Text.translatable("menu.category.general.option.helicopterMode.description")).
+                            build()
+                        ).binding(
                             false,
                             () -> BackTools.getConfigHandler().isHelicopterModeOn(),
                             helicopterMode -> BackTools.getConfigHandler().helicopterMode(helicopterMode)
@@ -52,8 +59,11 @@ public class ModMenuIntegration implements ModMenuApi {
                                 onOffFormatter()
                         ).build()
                     ).option(Option.<Boolean>createBuilder().
-                        name(Text.literal("Advanced Options")).
-                        binding(
+                        name(Text.translatable("menu.category.general.option.advancedSettings.name")).
+                        description(OptionDescription.createBuilder().
+                            text(Text.translatable("menu.category.general.option.advancedSettings.description")).
+                            build()
+                        ).binding(
                             false,
                             () -> BackTools.getConfigHandler().isAdvancedMenu(),
                             advancedMenuEntries -> BackTools.getConfigHandler().advancedMenuEntries(advancedMenuEntries)
@@ -64,14 +74,12 @@ public class ModMenuIntegration implements ModMenuApi {
                     ).build()
             ).category(
                 ConfigCategory.createBuilder().
-                    name(Text.literal("back tools")).
+                    name(Text.translatable("menu.category.backTools.title")).
                     group(ButtonList.createBuilder().
-                        name(Text.literal("back tools")).
+                        name(Text.translatable("menu.category.backTools.title")).
                         state(new ButtonList.ListStateManager(
                             () -> BackTools.getConfigHandler().rawBackTools(),
-                            newMap -> {
-                                BackTools.getConfigHandler().rawBackTools(newMap);
-                            })
+                            newMap -> BackTools.getConfigHandler().rawBackTools(newMap))
                         ).actionSupplier(
                             (yaclScreen, entryListButtonOption) -> {
                                 Map.Entry<AItemLike, ToolTransformation> pendingValue = entryListButtonOption.pendingValue();
@@ -89,9 +97,9 @@ public class ModMenuIntegration implements ModMenuApi {
                     ).build()
             ).category(
                 ConfigCategory.createBuilder().
-                    name(Text.literal("belt tools")).
+                    name(Text.translatable("menu.category.beltTools.title")).
                     group(ButtonList.createBuilder().
-                        name(Text.literal("belt tools")).
+                        name(Text.translatable("menu.category.beltTools.title")).
                         state(new ButtonList.ListStateManager(
                             () -> BackTools.getConfigHandler().rawBeltTools(),
                             newMap -> BackTools.getConfigHandler().rawBeltTools(newMap))

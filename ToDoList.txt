@@ -1,0 +1,4 @@
+todo: clean up. there are some code doubling and quirks
+todo: description of the options
+todo: get the component string in the menu to work
+todo: comments in the config

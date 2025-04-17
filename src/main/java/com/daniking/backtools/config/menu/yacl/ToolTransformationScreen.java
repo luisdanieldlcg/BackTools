@@ -75,10 +75,10 @@ public class ToolTransformationScreen extends YACLScreen {
         final @NotNull ToolTransformation.ToolTransformationBuilder pendingToolTransformationBuilder = toolTransformation.toBuilder();
         final @NotNull AtomicReference<@NotNull String> rawComponentReference = new AtomicReference<>("{}"); // todo
 
-        final Text title = isBelt ? Text.literal("belt tools") : Text.literal("back tools");
+        final Text title = isBelt ? Text.translatable("menu.category.beltTools.title") : Text.translatable("menu.category.backTools.title");
 
         final @NotNull Option<AItemLike> ItemLikeOption = Option.<AItemLike>createBuilder().
-            name(Text.literal("item (tag)")).
+            name(Text.translatable("menu.toolTransformation.option.itemTag.name")).
             binding(AItemLike.fromItem(Items.STONE_SWORD),
                 itemLikeReference::get,
                 itemLikeReference::set
@@ -91,7 +91,7 @@ public class ToolTransformationScreen extends YACLScreen {
                 name(title).
                 option(ItemLikeOption).
                 optionIf(advancedMode, Option.<String>createBuilder().
-                    name(Text.literal("components")).
+                    name(Text.translatable("menu.toolTransformation.option.components.name")).
                     controller(StringControllerBuilder::create).
                     stateManager(
                         new PendingStateManager<>(
@@ -105,9 +105,9 @@ public class ToolTransformationScreen extends YACLScreen {
                     ).build()
                 ).groupIf(advancedMode,
                     OptionGroup.createBuilder().
-                        name(Text.literal("Offset")).
+                        name(Text.translatable("menu.toolTransformation.group.offset.name")).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("X")).
+                            name(Text.translatable("menu.toolTransformation.option.x.name")).
                             controller(FloatFieldControllerBuilder::create).
                             stateManager(
                                 new PendingStateManager<>(
@@ -119,7 +119,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("Y")).
+                            name(Text.translatable("menu.toolTransformation.option.y.name")).
                             controller(FloatFieldControllerBuilder::create).
                             stateManager(
                                 new PendingStateManager<>(
@@ -131,7 +131,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("Z")).
+                            name(Text.translatable("menu.toolTransformation.option.z.name")).
                             controller(FloatFieldControllerBuilder::create).
                             stateManager(
                                 new PendingStateManager<>(
@@ -143,9 +143,9 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).build()
                 ).group(OptionGroup.createBuilder().
-                    name(Text.literal("rotation")).
+                    name(Text.translatable("menu.toolTransformation.group.rotation.name")).
                     optionIf(advancedMode, Option.<Float>createBuilder().
-                        name(Text.literal("X")).
+                        name(Text.translatable("menu.toolTransformation.option.x.name")).
                         controller(option -> FloatSliderControllerBuilder.create(option).
                             range(0f, 360f).
                             step(0.5f)
@@ -158,7 +158,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             )
                         ).build()).
                     optionIf(advancedMode, Option.<Float>createBuilder().
-                        name(Text.literal("Y")).
+                        name(Text.translatable("menu.toolTransformation.option.y.name")).
                         controller(option -> FloatSliderControllerBuilder.create(option).
                             range(0f, 360f).
                             step(0.5f)
@@ -171,7 +171,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             )
                         ).build()).
                     option(Option.<Float>createBuilder().
-                        name(Text.literal("Z")).
+                        name(Text.translatable("menu.toolTransformation.option.z.name")).
                         controller(option -> FloatSliderControllerBuilder.create(option).
                             range(0f, 360f).
                             step(0.5f)
@@ -186,9 +186,9 @@ public class ToolTransformationScreen extends YACLScreen {
                     build()
                 ).groupIf(advancedMode,
                     OptionGroup.createBuilder().
-                        name(Text.literal("Scale")).
+                        name(Text.translatable("menu.toolTransformation.group.scale.name")).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("X")).
+                            name(Text.translatable("menu.toolTransformation.option.x.name")).
                             controller(option -> FloatFieldControllerBuilder.create(option).
                                 min(0f)
                             ).stateManager(
@@ -201,7 +201,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("Y")).
+                            name(Text.translatable("menu.toolTransformation.option.y.name")).
                             controller(option -> FloatFieldControllerBuilder.create(option).
                                 min(0f)
                             ).controller(FloatFieldControllerBuilder::create).
@@ -215,7 +215,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).
                         option(Option.<Float>createBuilder().
-                            name(Text.literal("Z")).
+                            name(Text.translatable("menu.toolTransformation.option.z.name")).
                             controller(option -> FloatFieldControllerBuilder.create(option).
                                 min(0f)
                             ).stateManager(
@@ -228,7 +228,7 @@ public class ToolTransformationScreen extends YACLScreen {
                             ).build()
                         ).build()
                 ).optionIf(advancedMode, Option.<Boolean>createBuilder().
-                    name(Text.literal("is symmetric")).
+                    name(Text.translatable("menu.toolTransformation.option.isSymmetric.name")).
                     controller(option -> BooleanControllerBuilder.create(option).
                         trueFalseFormatter()
                     ).stateManager(
@@ -240,7 +240,7 @@ public class ToolTransformationScreen extends YACLScreen {
                         )
                     ).build()
                 ).option(Option.<Boolean>createBuilder().
-                    name(Text.literal("is blacklisted")).
+                    name(Text.translatable("menu.toolTransformation.option.isBlacklisted.name")).
                     controller(option -> BooleanControllerBuilder.create(option).
                         trueFalseFormatter()
                     ).stateManager(
@@ -365,14 +365,14 @@ public class ToolTransformationScreen extends YACLScreen {
             rightPaneDim = new ScreenRect(screen.width / 3 * 2, tabArea.getTop() + 1, screen.width / 3, tabArea.height());
             MutableDimension<Integer> actionDim = Dimension.ofInt(screen.width / 3 * 2 + screen.width / 6, screen.height - padding - 20, paddedWidth, 20);
 
-            saveFinishedButton = ButtonWidget.builder(Text.literal("Done"), btn -> screen.finishOrSave())
+            saveFinishedButton = ButtonWidget.builder(Text.translatable("menu.toolTransformation.widget.saveFinishedButton.name"), btn -> screen.finishOrSave())
                 .position(actionDim.x() - actionDim.width() / 2, actionDim.y())
                 .size(actionDim.width(), actionDim.height())
                 .build();
 
             actionDim.expand(-actionDim.width() / 2 - 2, 0).
                 move(-actionDim.width() / 2 - 2, -22);
-            cancelResetButton = ButtonWidget.builder(Text.literal("Cancel"), btn -> screen.cancelOrReset())
+            cancelResetButton = ButtonWidget.builder(Text.translatable("menu.toolTransformation.widget.cancelResetButton.name"), btn -> screen.cancelOrReset())
                 .position(actionDim.x() - actionDim.width() / 2, actionDim.y())
                 .size(actionDim.width(), actionDim.height())
                 .build();
@@ -396,7 +396,7 @@ public class ToolTransformationScreen extends YACLScreen {
             );
 
             offhandCheckbox = CheckboxWidget.builder(
-                    Text.literal("Offhand"),
+                    Text.translatable("menu.toolTransformation.widget.offhandCheckBox.name"),
                     screen.getTextRenderer()
                 ).checked(screen.menuItemContext.isOffhand()).
                 callback((checkboxWidget, newValue) -> screen.menuItemContext.setOffhand(newValue)).
