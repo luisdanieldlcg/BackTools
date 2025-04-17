@@ -42,7 +42,7 @@ public abstract class PlayerEntityRendererMixin<T extends AbstractClientPlayerEn
 
                 @Override
                 public @Nullable ToolTransformation getBeltTransformation(@NotNull ItemStack stack) {
-                    return  BackTools.getConfigHandler().getBeltTransformation(stack);
+                    return BackTools.getConfigHandler().getBeltTransformation(stack);
                 }
             }
         ));

@@ -8,6 +8,7 @@
   "client": [
     "BipedEntityRendererInvoker",
     "ClientWorldMixin",
+    "EntityRenderDispatcherAccessor",
     "PlayerEntityRendererInvoker",
     "PlayerEntityRendererMixin",
     "PlayerEntityTickMixin"

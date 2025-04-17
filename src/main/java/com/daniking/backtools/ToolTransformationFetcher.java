@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public interface ToolTransformationFetcher {
-    @Nullable ToolTransformation getBackTransformation (@NotNull ItemStack stack);
+    @Nullable ToolTransformation getBackTransformation(@NotNull ItemStack stack);
 
-    @Nullable ToolTransformation getBeltTransformation (@NotNull ItemStack stack);
+    @Nullable ToolTransformation getBeltTransformation(@NotNull ItemStack stack);
 }

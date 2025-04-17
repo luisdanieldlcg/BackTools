@@ -204,7 +204,7 @@ public class ToolTransformation extends Object {
             isBlacklisted(this.isBlacklisted);
     }
 
-    public static ToolTransformationBuilder builder () {
+    public static ToolTransformationBuilder builder() {
         return new ToolTransformationBuilder();
     }
 

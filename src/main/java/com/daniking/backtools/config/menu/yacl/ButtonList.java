@@ -1,16 +1,13 @@
 package com.daniking.backtools.config.menu.yacl;
 
-import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
 import com.daniking.backtools.config.ToolTransformation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.gui.YACLScreen;
-import dev.isxander.yacl3.impl.ProvidesBindingForDeprecation;
 import net.minecraft.text.Text;
 import org.apache.commons.lang3.Validate;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -398,7 +395,7 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         private StateManager.StateListener<List<Map.Entry<AItemLike, ToolTransformation>>> stateListener;
 
         public ListStateManager(@NotNull Supplier<@NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation>> mapGetter,
-                            @NotNull Consumer<@NotNull LinkedHashMap<AItemLike, ToolTransformation>> mapSetter) {
+                                @NotNull Consumer<@NotNull LinkedHashMap<AItemLike, ToolTransformation>> mapSetter) {
             this.mapGetter = mapGetter;
             this.mapSetter = mapSetter;
             this.stateListener = StateListener.noop();
@@ -470,7 +467,7 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
             this.stateListener = this.stateListener.andThen(stateListener);
         }
 
-        protected @NotNull Supplier<@NotNull LinkedHashMap<AItemLike, ToolTransformation>> mapGetter(){
+        protected @NotNull Supplier<@NotNull LinkedHashMap<AItemLike, ToolTransformation>> mapGetter() {
             return mapGetter;
         }
 

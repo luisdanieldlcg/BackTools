@@ -42,7 +42,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.Random;
 
-public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractClientPlayerEntity, PlayerEntityRenderState, PlayerEntityModel>  {
+public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractClientPlayerEntity, PlayerEntityRenderState, PlayerEntityModel> {
     private static final Item[] FOOLS_ITEMS = { // todo
         Items.WARPED_FENCE_GATE,
         Items.LIGHTNING_ROD,
@@ -54,11 +54,14 @@ public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractCl
         Items.BONE
     };
 
-    public DisplayPlayerEntityRenderer (final @NotNull EntityRendererFactory.Context ctx, final boolean slim,
-                                        final @NotNull ToolTransformationScreen.MenuItemContext menuItemContext) {
+    public DisplayPlayerEntityRenderer(final @NotNull EntityRendererFactory.Context ctx, final boolean slim,
+                                       final @NotNull ToolTransformationScreen.MenuItemContext menuItemContext) {
         super(ctx, new PlayerEntityModel(ctx.getPart(slim ? EntityModelLayers.PLAYER_SLIM : EntityModelLayers.PLAYER), slim), 0.5f);
 
-        this.addFeature(new ArmorFeatureRenderer<>(this, new ArmorEntityModel<>(ctx.getPart(slim ? EntityModelLayers.PLAYER_SLIM_INNER_ARMOR : EntityModelLayers.PLAYER_INNER_ARMOR)), new ArmorEntityModel(ctx.getPart(slim ? EntityModelLayers.PLAYER_SLIM_OUTER_ARMOR : EntityModelLayers.PLAYER_OUTER_ARMOR)), ctx.getEquipmentRenderer()));
+        this.addFeature(new ArmorFeatureRenderer<>(this, new ArmorEntityModel<>(
+            ctx.getPart(slim ? EntityModelLayers.PLAYER_SLIM_INNER_ARMOR : EntityModelLayers.PLAYER_INNER_ARMOR)),
+            new ArmorEntityModel<>(ctx.getPart(slim ? EntityModelLayers.PLAYER_SLIM_OUTER_ARMOR : EntityModelLayers.PLAYER_OUTER_ARMOR)),
+            ctx.getEquipmentRenderer()));
         this.addFeature(new StuckArrowsFeatureRenderer<>(this, ctx));
         this.addFeature(new Deadmau5FeatureRenderer(this, ctx.getEntityModels()));
         this.addFeature(new CapeFeatureRenderer(this, ctx.getEntityModels(), ctx.getEquipmentModelLoader()));
@@ -79,7 +82,7 @@ public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractCl
 
         matrixStack.scale(playerEntityRenderState.baseScale, playerEntityRenderState.baseScale, playerEntityRenderState.baseScale);
         this.setupTransforms(playerEntityRenderState, matrixStack, playerEntityRenderState.bodyYaw, playerEntityRenderState.baseScale);
-        matrixStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(((DisplayPlayerRenderState)playerEntityRenderState).bodyPitch), 0.0F, 1.0625F, 0.0F);
+        matrixStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(((DisplayPlayerRenderState) playerEntityRenderState).bodyPitch), 0.0F, 1.0625F, 0.0F);
         matrixStack.scale(-1.0F, -1.0F, 1.0F);
         this.scale(playerEntityRenderState, matrixStack);
         matrixStack.translate(0.0F, -1.501F, 0.0F);
@@ -185,7 +188,7 @@ public class DisplayPlayerEntityRenderer extends LivingEntityRenderer<AbstractCl
     }
 
     @Override
-    public Identifier getTexture(@Nullable PlayerEntityRenderState state){
+    public Identifier getTexture(@Nullable PlayerEntityRenderState state) {
         return state == null ? DefaultSkinHelper.getTexture() : state.skinTextures.texture();
     }
 

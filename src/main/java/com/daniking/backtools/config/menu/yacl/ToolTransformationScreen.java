@@ -6,6 +6,7 @@ import com.daniking.backtools.config.AItemLike;
 import com.daniking.backtools.config.ToolTransformation;
 import com.daniking.backtools.config.menu.DisplayPlayerEntityRenderer;
 import com.daniking.backtools.config.menu.DisplayPlayerRenderState;
+import com.daniking.backtools.mixin.EntityRenderDispatcherAccessor;
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.isxander.yacl3.api.*;
@@ -39,7 +40,6 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.equipment.EquipmentModelLoader;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.util.math.MatrixStack;
@@ -86,7 +86,7 @@ public class ToolTransformationScreen extends YACLScreen {
             MinecraftClient.getInstance().getBlockRenderManager(),
             MinecraftClient.getInstance().getResourceManager(),
             MinecraftClient.getInstance().getLoadedEntityModels(),
-            new EquipmentModelLoader(),
+            ((EntityRenderDispatcherAccessor)MinecraftClient.getInstance().getEntityRenderDispatcher()).getEquipmentModelLoader(),
             MinecraftClient.getInstance().textRenderer
         );
 
@@ -340,7 +340,7 @@ public class ToolTransformationScreen extends YACLScreen {
         matrixStack.pushMatrix();
         matrixStack.translate(x, y, 1050.0f);
         matrixStack.scale(1.0f, 1.0f, -1.0f);
-        MatrixStack matrixStack2 = new  MatrixStack();
+        MatrixStack matrixStack2 = new MatrixStack();
         matrixStack2.translate(0.0, 0.0, 1000.0);
         matrixStack2.scale(size, size, size);
 
@@ -362,7 +362,7 @@ public class ToolTransformationScreen extends YACLScreen {
     public void render(final DrawContext context, final int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        int playerX = width/2;
+        int playerX = width / 2;
         int playerY = 215;
 
         playerEntityRenderState = (DisplayPlayerRenderState) displayPlayerEntityRenderer.getAndUpdateRenderState(
@@ -508,8 +508,8 @@ public class ToolTransformationScreen extends YACLScreen {
             );
 
             offhandCheckbox = CheckboxWidget.builder(
-                Text.literal("Offhand"),
-                screen.getTextRenderer()
+                    Text.literal("Offhand"),
+                    screen.getTextRenderer()
                 ).checked(screen.menuItemContext.isOffhand()).
                 callback((checkboxWidget, newValue) -> screen.menuItemContext.setOffhand(newValue)).
                 pos(
@@ -553,13 +553,13 @@ public class ToolTransformationScreen extends YACLScreen {
         }
 
         public void renderBackground(final @NotNull DrawContext graphics) {
-            GuiUtils.blitGuiTex(graphics, DARKER_BG, this.rightPaneDim.getLeft(), this.rightPaneDim.getTop(), (float)(this.rightPaneDim.getRight() + 2), (float)(this.rightPaneDim.getBottom() + 2), this.rightPaneDim.width() + 2, this.rightPaneDim.height() + 2, 32, 32);
+            GuiUtils.blitGuiTex(graphics, DARKER_BG, this.rightPaneDim.getLeft(), this.rightPaneDim.getTop(), (float) (this.rightPaneDim.getRight() + 2), (float) (this.rightPaneDim.getBottom() + 2), this.rightPaneDim.width() + 2, this.rightPaneDim.height() + 2, 32, 32);
             graphics.getMatrices().push();
             graphics.getMatrices().translate(0.0F, 0.0F, 10.0F);
             GuiUtils.blitGuiTex(graphics, CreateWorldScreen.HEADER_SEPARATOR_TEXTURE, this.rightPaneDim.getLeft() - 1, this.rightPaneDim.getTop() - 2, 0.0F, 0.0F, this.rightPaneDim.width() + 1, 2, 32, 2);
             graphics.getMatrices().pop();
             graphics.getMatrices().push();
-            graphics.getMatrices().translate((float)this.rightPaneDim.getLeft(), (float)(this.rightPaneDim.getTop() - 1), 0.0F);
+            graphics.getMatrices().translate((float) this.rightPaneDim.getLeft(), (float) (this.rightPaneDim.getTop() - 1), 0.0F);
             graphics.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(90.0F), 0.0F, 0.0F, 1.0F);
             GuiUtils.blitGuiTex(graphics, CreateWorldScreen.FOOTER_SEPARATOR_TEXTURE, 0, 0, 0.0F, 0.0F, this.rightPaneDim.height() + 1, 2, 32, 2);
             graphics.getMatrices().pop();

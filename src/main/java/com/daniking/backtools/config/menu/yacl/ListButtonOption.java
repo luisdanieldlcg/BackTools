@@ -1,6 +1,5 @@
 package com.daniking.backtools.config.menu.yacl;
 
-import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
 import com.daniking.backtools.config.ToolTransformation;
 import com.daniking.backtools.config.menu.Ticker;
