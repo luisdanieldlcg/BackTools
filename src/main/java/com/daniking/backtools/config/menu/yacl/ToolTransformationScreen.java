@@ -4,11 +4,7 @@ import com.daniking.backtools.IItemContext;
 import com.daniking.backtools.ToolTransformationFetcher;
 import com.daniking.backtools.config.AItemLike;
 import com.daniking.backtools.config.ToolTransformation;
-import com.daniking.backtools.config.menu.DisplayPlayerEntityRenderer;
-import com.daniking.backtools.config.menu.DisplayPlayerRenderState;
-import com.daniking.backtools.mixin.EntityRenderDispatcherAccessor;
-import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.daniking.backtools.config.menu.DisplayPlayerWidget;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatFieldControllerBuilder;
@@ -35,36 +31,22 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.CheckboxWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.util.DefaultSkinHelper;
-import net.minecraft.client.util.SkinTextures;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Matrix4fStack;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ToolTransformationScreen extends YACLScreen {
-    private long lastTime = 0L;
-    private @Nullable DisplayPlayerEntityRenderer displayPlayerEntityRenderer;
-    private DisplayPlayerRenderState playerEntityRenderState;
     private final @NotNull MenuItemContext menuItemContext;
 
     private int saveButtonMessageTime;
@@ -77,45 +59,9 @@ public class ToolTransformationScreen extends YACLScreen {
         super(configLib, parent);
         this.menuItemContext = new MenuItemContext(itemLikeSupplier, pendingToolTransformationBuilder, isBelt);
 
-        OptionUtils.forEachOptions(config, (option) -> option.addListener((opt, val) -> this.onOptionChanged(opt)));
-
-        final @NotNull EntityRendererFactory.Context ctx = new EntityRendererFactory.Context(
-            MinecraftClient.getInstance().getEntityRenderDispatcher(),
-            MinecraftClient.getInstance().getItemModelManager(),
-            MinecraftClient.getInstance().getMapRenderer(),
-            MinecraftClient.getInstance().getBlockRenderManager(),
-            MinecraftClient.getInstance().getResourceManager(),
-            MinecraftClient.getInstance().getLoadedEntityModels(),
-            ((EntityRenderDispatcherAccessor)MinecraftClient.getInstance().getEntityRenderDispatcher()).getEquipmentModelLoader(),
-            MinecraftClient.getInstance().textRenderer
-        );
-
-        ClientPlayerEntity clientPlayerEntity = MinecraftClient.getInstance().player;
-
-        if (clientPlayerEntity == null) {
-            final GameProfile gameProfile = MinecraftClient.getInstance().getGameProfile();
-
-            MinecraftClient.getInstance().getSkinProvider().
-                fetchSkinTextures(gameProfile).
-                whenComplete((optionalSkinTextures, err) -> {
-                    final @NotNull AtomicBoolean isSlim = new AtomicBoolean();
-
-                    // YES IT CAN AN WILL BE NULL, in case the Future completes with an exception
-                    //noinspection OptionalAssignedToNull
-                    if (optionalSkinTextures != null) {
-                        optionalSkinTextures.ifPresentOrElse(
-                            fetchtedSkinTextures -> isSlim.set(fetchtedSkinTextures.model() == SkinTextures.Model.SLIM),
-                            () -> isSlim.set(DefaultSkinHelper.getSkinTextures(gameProfile).model() == SkinTextures.Model.SLIM)
-                        );
-                    } else { // error case
-                        isSlim.set(DefaultSkinHelper.getSkinTextures(gameProfile).model() == SkinTextures.Model.SLIM);
-                    }
-
-                    displayPlayerEntityRenderer = new DisplayPlayerEntityRenderer(ctx, isSlim.get(), menuItemContext);
-                });
-        } else {
-            displayPlayerEntityRenderer = new DisplayPlayerEntityRenderer(ctx, clientPlayerEntity.getSkinTextures().model() == SkinTextures.Model.SLIM, menuItemContext);
-        }
+        // as time of writing the 'onOptionChanged' method of the super class is private.
+        // So in order to update our buttons, we have to register another listener.
+        OptionUtils.forEachOptions(config, (option) -> option.addEventListener((opt, val) -> this.onOptionChanged(opt)));
     }
 
     public static ToolTransformationScreen createToolTransformationScreen(final @NotNull Screen parent,
@@ -331,65 +277,6 @@ public class ToolTransformationScreen extends YACLScreen {
         this.config.initConsumer().accept(this);
     }
 
-    protected void drawPlayer(final int x, final int y, final int size, final @NotNull DisplayPlayerRenderState playerEntityRenderState) {
-        if (displayPlayerEntityRenderer == null) { // skin still loading
-            return;
-        }
-
-        Matrix4fStack matrixStack = RenderSystem.getModelViewStack(); // todo remove
-        matrixStack.pushMatrix();
-        matrixStack.translate(x, y, 1050.0f);
-        matrixStack.scale(1.0f, 1.0f, -1.0f);
-        MatrixStack matrixStack2 = new MatrixStack();
-        matrixStack2.translate(0.0, 0.0, 1000.0);
-        matrixStack2.scale(size, size, size);
-
-        matrixStack2.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180.0f));
-
-        DiffuseLighting.enableGuiShaderLighting();
-        EntityRenderDispatcher entityRenderDispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
-        entityRenderDispatcher.setRenderShadows(false);
-        VertexConsumerProvider.Immediate immediate = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-
-        displayPlayerEntityRenderer.render(playerEntityRenderState, matrixStack2, immediate, 0xF000F0);
-        immediate.draw();
-        entityRenderDispatcher.setRenderShadows(true);
-        matrixStack.popMatrix();
-        DiffuseLighting.enableGuiDepthLighting();
-    }
-
-    @Override
-    public void render(final DrawContext context, final int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
-
-        int playerX = width / 2;
-        int playerY = 215;
-
-        playerEntityRenderState = (DisplayPlayerRenderState) displayPlayerEntityRenderer.getAndUpdateRenderState(
-            MinecraftClient.getInstance().player,
-            MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true));
-
-        long time = System.currentTimeMillis();
-
-        if (time > lastTime + (1000 / 60)) {
-            lastTime = time;
-
-            playerEntityRenderState.limbAnimator.updateLimbs(0.025f, 0.4F, 1.0F);
-        }
-
-        drawPlayer(playerX, playerY, 70, playerEntityRenderState);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (playerEntityRenderState != null) { // todo only if over player widget
-            playerEntityRenderState.bodyYaw = (float) (playerEntityRenderState.bodyYaw - deltaX * 1.2F); // don't worry about wrapping around back to 0-360°, it will get used in sin/cos anyway.
-            playerEntityRenderState.bodyPitch = MathHelper.clamp(playerEntityRenderState.bodyPitch + (float) deltaY, -50.0F, 50.0F);
-        }
-
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
-
     @Override
     public void setSaveButtonMessage(final @NotNull Text message, final @NotNull Text tooltip) {
         super.setSaveButtonMessage(message, tooltip);
@@ -445,7 +332,7 @@ public class ToolTransformationScreen extends YACLScreen {
         }
     }
 
-    protected void onOptionChanged(Option<?> option) {
+    protected void onOptionChanged(Option<?> ignoredOption) { // note the unused option here is because this method mirrors a private methode on super, that hopefully can get overwritten one day!
         if (tabManager.getCurrentTab() instanceof CategoryTab categoryTab) {
             categoryTab.updateButtons();
         }
@@ -462,6 +349,7 @@ public class ToolTransformationScreen extends YACLScreen {
         protected final @NotNull ButtonWidget undoButton;
         protected final @NotNull CheckboxWidget offhandCheckbox;
         protected final @NotNull SearchFieldWidget searchField;
+        protected final @NotNull DisplayPlayerWidget displayPlayerWidget;
         protected @NotNull OptionDescriptionWidget descriptionWidget;
         protected final @NotNull ScreenRect rightPaneDim;
 
@@ -499,7 +387,7 @@ public class ToolTransformationScreen extends YACLScreen {
             searchField = new SearchFieldWidget(
                 screen,
                 screen.getTextRenderer(),
-                screen.width / 3 * 2 + screen.width / 6 - paddedWidth / 2 + 1,
+                screen.width / 6 * 5 - paddedWidth / 2 + 1,
                 undoButton.getY() - 22,
                 paddedWidth - 2, 18,
                 Text.translatable("gui.recipebook.search_hint"),
@@ -513,7 +401,7 @@ public class ToolTransformationScreen extends YACLScreen {
                 ).checked(screen.menuItemContext.isOffhand()).
                 callback((checkboxWidget, newValue) -> screen.menuItemContext.setOffhand(newValue)).
                 pos(
-                    screen.width / 3 * 2 + screen.width / 6 - paddedWidth / 2 + 1,
+                    screen.width / 6 * 5 - paddedWidth / 2 + 1,
                     searchField.getY() - searchField.getHeight() - 2
                 ).build();
 
@@ -525,13 +413,21 @@ public class ToolTransformationScreen extends YACLScreen {
                     desc -> descriptionWidget.setOptionDescription(desc))
             );
 
+            displayPlayerWidget = new DisplayPlayerWidget(
+                screen.width / 3 * 2 + padding,
+                tabArea.getTop() + padding,
+                paddedWidth,
+                (offhandCheckbox.getY() - 1 - tabArea.getTop()) / 3 * 2 - padding * 2,
+                screen.menuItemContext
+            );
+
             descriptionWidget = new OptionDescriptionWidget(
                 () -> new ScreenRect(
                     screen.width / 3 * 2 + padding,
-                    tabArea.getTop() + padding,
+                    displayPlayerWidget.getBottom() + padding,
                     paddedWidth,
-                    offhandCheckbox.getY() - 1 - tabArea.getTop() - padding * 2
-                ),
+                    (offhandCheckbox.getY() - 1 - tabArea.getTop()) / 3 * 2 - padding * 2
+            ),
                 null
             );
 
@@ -549,6 +445,7 @@ public class ToolTransformationScreen extends YACLScreen {
             consumer.accept(undoButton);
             consumer.accept(searchField);
             consumer.accept(offhandCheckbox);
+            consumer.accept(displayPlayerWidget);
             consumer.accept(descriptionWidget);
         }
 
@@ -569,7 +466,7 @@ public class ToolTransformationScreen extends YACLScreen {
         }
 
         public void tick() {
-            this.descriptionWidget.tick();
+           // this.descriptionWidget.tick();
         }
 
         public @NotNull Tooltip getTooltip() {
