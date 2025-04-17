@@ -28,7 +28,8 @@ public abstract class AItemLike implements Iterable<Item> {
 
     public static @NotNull AItemLike fromTag(final @NotNull TagKey<Item> itemTag) {
         final SequencedSet<Item> itemResult;
-        if (BackTools.getConfigHandler() == null) { // todo this happens on startup. while the config handler instance get's created, the yacl creates a BackToolsConfig instance and that in turn crates ItemLikes.
+        if (BackTools.getConfigHandler() == null ||  // todo this happens on startup. while the config handler instance get's created, the yacl creates a BackToolsConfig instance and that in turn crates ItemLikes.
+            !BackTools.getConfigHandler().canAccessDynamicRegistries()) {
             return new InvalidItemLike('#' + itemTag.id().toString());
         } else {
             itemResult = BackTools.getConfigHandler().accessItemRegistry().getOptional(itemTag).orElseThrow().
@@ -48,6 +49,12 @@ public abstract class AItemLike implements Iterable<Item> {
 
     @Override
     public abstract @UnknownNullability String toString();
+
+    @Override
+    public abstract boolean equals(@Nullable Object other);
+
+    @Override
+    public abstract int hashCode();
 
     public abstract @UnknownNullability Item getDisplayItem();
 
@@ -77,6 +84,22 @@ public abstract class AItemLike implements Iterable<Item> {
         @Override
         public @NotNull String toString() {
             return '#' + super.identifier.toString();
+        }
+
+        @Override
+        public boolean equals(@Nullable Object other) {
+            if (this == other) {
+                return true;
+            } else if (other instanceof TagItemLike otherTagLike) {
+                return this.identifier.equals(otherTagLike.identifier);
+            }
+
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return identifier.hashCode();
         }
 
         @Override
@@ -178,6 +201,22 @@ public abstract class AItemLike implements Iterable<Item> {
         }
 
         @Override
+        public boolean equals(@Nullable Object other) {
+            if (this == other) {
+                return true;
+            } else if (other instanceof DirectItemLike otherDirectLike) {
+                return this.item.equals(otherDirectLike.item);
+            }
+
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return item.hashCode();
+        }
+
+        @Override
         public boolean isInvalid() {
             return false;
         }
@@ -226,6 +265,22 @@ public abstract class AItemLike implements Iterable<Item> {
         @Override
         public @NotNull String toString() {
             return invalidPart;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object other) {
+            if (this == other) {
+                return true;
+            } else if (other instanceof InvalidItemLike otherInvalid) {
+                return this.invalidPart.equals(otherInvalid.invalidPart);
+            }
+
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return invalidPart.hashCode();
         }
 
         @Override

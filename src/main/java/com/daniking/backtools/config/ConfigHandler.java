@@ -151,16 +151,19 @@ public class ConfigHandler {
     public void shouldRenderWithCapes(final boolean shouldRenderWithCapes) {
         yaclHandler.instance().renderWithCapes = shouldRenderWithCapes;
         saveConfig();
+        reload(false);
     }
 
     public void helicopterMode(final boolean helicopterMode) {
         yaclHandler.instance().helicopterMode = helicopterMode;
         saveConfig();
+        reload(false);
     }
 
     public void advancedMenuEntries(final boolean advancedMenuEntries) {
         yaclHandler.instance().advancedMenuEntries = advancedMenuEntries;
         saveConfig();
+        reload(false);
     }
 
     public @NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBackTools() {
@@ -170,6 +173,7 @@ public class ConfigHandler {
     public void rawBackTools(@NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBackTools) {
         yaclHandler.instance().backTools = rawBackTools;
         saveConfig();
+        reload(false);
     }
 
     public @NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBeltTools() {
@@ -179,6 +183,7 @@ public class ConfigHandler {
     public void rawBeltTools(@NotNull LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> rawBeltTools) {
         yaclHandler.instance().beltTools = rawBeltTools;
         saveConfig();
+        reload(false);
     }
 
     public void checkWrapperLookUp(final @NotNull RegistryWrapper.WrapperLookup wrapperLookup) {
@@ -186,11 +191,11 @@ public class ConfigHandler {
             this.dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
             this.dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
             this.wrapperLookup = wrapperLookup;
-            reload();
+            reload(true);
         }
     }
 
-    public void reload() { // todo use in menu
+    public void reload(boolean shouldSave) {
         yaclHandler.load();
 
         final @Nullable Version configVersion = yaclHandler.instance().configVersion;
@@ -215,7 +220,9 @@ public class ConfigHandler {
         backConfigurations = unpackItemLikes(yaclHandler.instance().backTools);
         beltConfigurations = unpackItemLikes(yaclHandler.instance().beltTools);
 
-        saveConfig();
+        if (shouldSave) {
+            saveConfig();
+        }
     }
 
     private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> unpackItemLikes(final Map<@NotNull AItemLike, @NotNull ToolTransformation> rawMap) {
@@ -257,7 +264,7 @@ public class ConfigHandler {
             final @NotNull SequencedSet<@NotNull AItemLike> result = bakeSortedSet(matcher.group("path"));
 
             if (matcher.group("isTag") != null) {
-                if (!(this.wrapperLookup instanceof DynamicRegistryManager)) { // todo communicate and maybe allow it??
+                if (!canAccessDynamicRegistries()) { // todo communicate and maybe allow it??
                     return Collections.emptySortedSet();
                 }
 
@@ -311,7 +318,7 @@ public class ConfigHandler {
                 reader.skip();
                 final @NotNull Identifier identifier = Identifier.fromCommandInput(reader);
 
-                if (!(this.wrapperLookup instanceof DynamicRegistryManager)) {
+                if (!canAccessDynamicRegistries()) {
                     return new AItemLike.InvalidItemLike('#' + identifier.toString());
                 }
 
@@ -339,6 +346,10 @@ public class ConfigHandler {
                 }).value()
             );
         }
+    }
+
+    public boolean canAccessDynamicRegistries() {
+        return this.wrapperLookup instanceof DynamicRegistryManager;
     }
 
     public static @Nullable Identifier getItemId(final @NotNull Item item) {

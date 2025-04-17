@@ -141,7 +141,7 @@ public class BackToolFeatureRenderer<M extends PlayerEntityModel> extends Player
 
                     matrices.scale(toolTransformation.scaleX(), toolTransformation.scaleY(), toolTransformation.scaleZ());
                 } else {
-                    BackTools.LOGGER.info("Item {} was marked as enabled, but was neither a back nor a belt tool!", stack.getItem());
+                    BackTools.LOGGER.warn("Item {} was marked as enabled, but was neither a back nor a belt tool!", stack.getItem());
                     matrices.pop();
                     return; // Early return, without render, if neither back nor belt tool
                 }

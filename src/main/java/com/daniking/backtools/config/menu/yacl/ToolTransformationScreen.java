@@ -54,7 +54,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4fStack;
 
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -380,9 +381,11 @@ public class ToolTransformationScreen extends YACLScreen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) { // todo only if over player widget
-        playerEntityRenderState.bodyYaw = (float) (playerEntityRenderState.bodyYaw - deltaX * 1.2F); // don't worry about wrapping around back to 0-360°, it will get used in sin/cos anyway.
-        playerEntityRenderState.bodyPitch = MathHelper.clamp(playerEntityRenderState.bodyPitch + (float)deltaY, -50.0F, 50.0F);
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (playerEntityRenderState != null) { // todo only if over player widget
+            playerEntityRenderState.bodyYaw = (float) (playerEntityRenderState.bodyYaw - deltaX * 1.2F); // don't worry about wrapping around back to 0-360°, it will get used in sin/cos anyway.
+            playerEntityRenderState.bodyPitch = MathHelper.clamp(playerEntityRenderState.bodyPitch + (float) deltaY, -50.0F, 50.0F);
+        }
 
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }

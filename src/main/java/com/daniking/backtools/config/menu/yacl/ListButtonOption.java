@@ -10,40 +10,41 @@ import dev.isxander.yacl3.gui.AbstractWidget;
 import dev.isxander.yacl3.gui.YACLScreen;
 import dev.isxander.yacl3.gui.controllers.ControllerWidget;
 import dev.isxander.yacl3.gui.controllers.ListEntryWidget;
-import dev.isxander.yacl3.impl.ProvidesBindingForDeprecation;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 
-public class ListButtonOption<T extends Map.Entry<AItemLike, ToolTransformation>> implements ListOptionEntry<T> {
-    private final @NotNull ButtonList<T> group;
-    private final @NotNull Controller<T> controller;
-    private final @NotNull StateManager<T> stateManager;
-    private final @NotNull BiConsumer<YACLScreen, ListButtonOption<T>> action;
+public class ListButtonOption implements ListOptionEntry<Map.Entry<AItemLike, ToolTransformation>> {
+    private final @NotNull ButtonList buttonList;
+    private final @NotNull Controller<Map.Entry<AItemLike, ToolTransformation>> controller;
+    private final @NotNull EntryStateManager stateManager;
+    private final @NotNull BiConsumer<YACLScreen, ListButtonOption> action;
 
-    public ListButtonOption(final @NotNull ButtonList<T> group,
-                            final @NotNull Function<ListButtonOption<T>, @NotNull Binding<T>> bindingFactory,
-                            final @NotNull BiConsumer<YACLScreen, ListButtonOption<T>> action) {
-        this.group = group;
+    public ListButtonOption(final @NotNull ButtonList buttonList,
+                            final @Nullable Map.Entry<AItemLike, ToolTransformation> defaultValue,
+                            final @NotNull BiConsumer<YACLScreen, ListButtonOption> action) {
+        this.buttonList = buttonList;
         this.action = action;
-        this.stateManager = StateManager.createSimple(new EntryBinding(bindingFactory.apply(this)));
+        this.stateManager = new EntryStateManager(defaultValue);
         stateManager.addListener((newPendingValue, oldValue) -> {
             if (newPendingValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
                 Ticker.getInstance().startTicking(tagItemLike);
             }
         });
+        stateManager.addListener((newPendingValue, oldValue) -> {
+            ListButtonOption.this.buttonList.triggerListener(OptionEventListener.Event.OTHER, true);
+        });
         this.controller = new EntryController(this);
     }
 
-    public @NotNull BiConsumer<@NotNull YACLScreen, @NotNull ListButtonOption<T>> action() {
+    public @NotNull BiConsumer<@NotNull YACLScreen, @NotNull ListButtonOption> action() {
         return action;
     }
 
@@ -56,93 +57,104 @@ public class ListButtonOption<T extends Map.Entry<AItemLike, ToolTransformation>
 
     }
 
+    @Override
     public @NotNull Text name() {
-        return this.group.name();
+        return this.buttonList.name();
     }
 
+    @Override
     public @NotNull OptionDescription description() { // todo
-        return this.group.description();
+        return this.buttonList.description();
     }
 
+    @Override
     public @NotNull Text tooltip() {
-        return this.group.tooltip();
+        return this.buttonList.tooltip();
     }
 
-    public @NotNull Controller<T> controller() {
+    @Override
+    public @NotNull Controller<Map.Entry<AItemLike, ToolTransformation>> controller() {
         return this.controller;
     }
 
-    public @NotNull StateManager<T> stateManager() {
+    @Override
+    public @NotNull StateManager<Map.Entry<AItemLike, ToolTransformation>> stateManager() {
         return stateManager;
     }
 
-    public @NotNull Binding<T> binding() {
-        if (stateManager instanceof ProvidesBindingForDeprecation) {
-            return ((ProvidesBindingForDeprecation<T>) stateManager).getBinding();
-        }
+    @Deprecated
+    @Override
+    public @NotNull Binding<Map.Entry<AItemLike, ToolTransformation>> binding() {
         throw new UnsupportedOperationException("Binding is not available for this option - using a new state manager which does not directly expose the binding as it may not have one.");
     }
 
+    @Override
     public boolean available() {
         return this.parentGroup().available();
     }
 
+    @Override
     public void setAvailable(final boolean available) {
     }
 
-    public @NotNull ListOption<T> parentGroup() {
-        return this.group;
+    @Override
+    public @NotNull ListOption<Map.Entry<AItemLike, ToolTransformation>> parentGroup() {
+        return this.buttonList;
     }
 
+    @Override
     public boolean changed() {
         return false;
     }
 
-    public @NotNull T pendingValue() {
+    @Override
+    public @NotNull Map.Entry<AItemLike, ToolTransformation> pendingValue() {
         return stateManager.get();
     }
 
-    public void requestSet(final @NotNull T value) {
+    @Override
+    public void requestSet(final @NotNull Map.Entry<AItemLike, ToolTransformation> value) {
         this.stateManager.set(value);
     }
 
+    @Override
     public boolean applyValue() {
-        if (changed()) {
-            this.stateManager.apply();
-            return true;
-        }
         return false;
     }
 
+    @Override
     public void forgetPendingValue() {
         this.stateManager.sync();
     }
 
+    @Override
     public void requestSetDefault() {
         this.stateManager.resetToDefault(StateManager.ResetAction.BY_OPTION);
     }
 
+    @Override
     public boolean isPendingValueDefault() {
         return this.stateManager.isDefault();
     }
 
+    @Override
     public boolean canResetToDefault() {
         return true;
     }
 
-    @ApiStatus.Internal
-    private final class EntryController implements Controller<T> {
-        private final @NotNull ListButtonOption<T> entry;
+    protected final class EntryController implements Controller<Map.Entry<AItemLike, ToolTransformation>> {
+        private final @NotNull ListButtonOption entry;
 
-        public EntryController(@NotNull ListButtonOption<T> entry) {
+        public EntryController(@NotNull ListButtonOption entry) {
             super();
             this.entry = entry;
         }
 
-        public @NotNull ListButtonOption<T> option() {
+        public @NotNull ListButtonOption option() {
             return entry;
         }
 
+        @Override
         public @NotNull Text formatValue() {
             return Text.literal(stringValue());
         }
@@ -155,6 +167,7 @@ public class ListButtonOption<T extends Map.Entry<AItemLike, ToolTransformation>
             return entry.pendingValue().toString();
         }
 
+        @Override
         public @NotNull AbstractWidget provideWidget(final @NotNull YACLScreen screen, final @NotNull Dimension<@NotNull Integer> widgetDimension) {
             return new ListEntryWidget(screen, this.entry, new ActionControllerElement(this, screen, widgetDimension));
         }
@@ -178,38 +191,73 @@ public class ListButtonOption<T extends Map.Entry<AItemLike, ToolTransformation>
         }
     }
 
-    @ApiStatus.Internal
-    private class EntryBinding implements Binding<T> {
-        private final @NotNull Binding<T> superBinding;
+    protected class EntryStateManager implements StateManager<Map.Entry<AItemLike, ToolTransformation>> {
+        private final static @NotNull Map.Entry<AItemLike, ToolTransformation> DEFAULT = Map.entry(AItemLike.fromItem(Items.STONE_SWORD), ToolTransformation.empty());
+        final @NotNull Map.Entry<AItemLike, ToolTransformation> defaultValue;
 
-        private EntryBinding(final @NotNull Binding<T> superBinding) {
-            this.superBinding = superBinding;
-        }
+        private StateListener<Map.Entry<AItemLike, ToolTransformation>> stateListener;
+        private @NotNull Map.Entry<AItemLike, ToolTransformation> currentValue;
 
-        public void setValue(final @NotNull T newValue) {
-            superBinding.setValue(newValue);
+        protected EntryStateManager(final @Nullable Map.Entry<AItemLike, ToolTransformation> defaultValue) {
+            stateListener = StateListener.noop();
+            this.defaultValue = Objects.requireNonNullElse(defaultValue, DEFAULT);
+            this.currentValue = this.defaultValue;
 
-            ListButtonOption.this.group.triggerListener(OptionEventListener.Event.OTHER, true);
-        }
-
-        public @NotNull T getValue() {
-            return superBinding.getValue();
-        }
-
-        public @NotNull T defaultValue() {
-            final T defaultValue = superBinding.defaultValue();
-            BackTools.LOGGER.info("defaultValue");
-
-            if (defaultValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
+            if (currentValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
                 Ticker.getInstance().startTicking(tagItemLike);
             }
+        }
 
-            return defaultValue;
+        @Override
+        public void set(final @NotNull Map.Entry<AItemLike, ToolTransformation> newValue) {
+            if (!this.get().equals(newValue)) {
+                stateListener.onStateChange(newValue, currentValue);
+                currentValue = newValue;
+
+                ListButtonOption.this.buttonList.stateManager().apply();
+            }
+        }
+
+        @Override
+        public @NotNull Map.Entry<AItemLike, ToolTransformation> get() {
+            return currentValue;
+        }
+
+        @Override
+        public void apply() {
+            ListButtonOption.this.buttonList.stateManager().apply();
+        }
+
+        @Override
+        public void resetToDefault(final @NotNull ResetAction resetAction) {
+            set(defaultValue);
+        }
+
+        @Override
+        public void sync() {
+        }
+
+        @Override
+        public boolean isSynced() {
+            return true;
+        }
+
+        public boolean isAlwaysSynced() {
+            return true;
+        }
+
+        @Override
+        public boolean isDefault() {
+            return this.currentValue.equals(this.defaultValue);
+        }
+
+        @Override
+        public void addListener(StateListener<Map.Entry<AItemLike, ToolTransformation>> stateListener) {
+            this.stateListener = this.stateListener.andThen(stateListener);
         }
     }
 
-    @ApiStatus.Internal
-    private class ActionControllerElement extends ControllerWidget<EntryController> {
+    protected class ActionControllerElement extends ControllerWidget<EntryController> {
         public ActionControllerElement(final @NotNull EntryController control, final @NotNull YACLScreen screen, final @NotNull Dimension<Integer> dim) {
             super(control, screen, dim);
         }
