@@ -68,47 +68,58 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         return new Builder();
     }
 
+    @Override
     public @NotNull Text name() {
         return this.name;
     }
 
+    @Override
     public @NotNull OptionDescription description() {
         return this.description;
     }
 
+    @Override
     public @NotNull Text tooltip() {
         return this.description().text();
     }
 
+    @Override
     public @NotNull ImmutableList<ListOptionEntry<Map.Entry<AItemLike, ToolTransformation>>> options() {
         return ImmutableList.copyOf(this.entries);
     }
 
+    @Override
     public @NotNull Controller<List<Map.Entry<AItemLike, ToolTransformation>>> controller() {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public @NotNull ListStateManager stateManager() {
         return this.stateManager;
     }
 
+    @Override
     @Deprecated
     public @NotNull Binding<List<Map.Entry<AItemLike, ToolTransformation>>> binding() {
         throw new UnsupportedOperationException("Binding is not available for this option - using a new state manager which does not directly expose the binding as it may not have one.");
     }
 
+    @Override
     public boolean collapsed() {
         return this.collapsed;
     }
 
+    @Override
     public @NotNull ImmutableSet<OptionFlag> flags() {
         return this.flags;
     }
 
+    @Override
     public @NotNull ImmutableList<Map.Entry<AItemLike, ToolTransformation>> pendingValue() {
         return ImmutableList.copyOf(this.entries.stream().map(Option::pendingValue).toList());
     }
 
+    @Override
     public void insertEntry(int index, ListOptionEntry<?> entry) {
         if (entry instanceof ListButtonOption listButtonOption) {
             this.entries.add(index, listButtonOption);
@@ -119,6 +130,7 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         }
     }
 
+    @Override
     public ListButtonOption insertNewEntry() {
         ListButtonOption newEntry = this.entryFactory.create(null);
         if (this.insertEntriesAtEnd) {
@@ -131,12 +143,14 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         return newEntry;
     }
 
+    @Override
     public void removeEntry(ListOptionEntry<?> entry) {
         if (entry instanceof ListButtonOption listButtonOption && this.entries.remove(listButtonOption)) {
             this.onRefresh();
         }
     }
 
+    @Override
     public int indexOf(ListOptionEntry<?> entry) {
         if (!(entry instanceof ListButtonOption)) {
             return -1;
@@ -145,16 +159,19 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         return this.entries.indexOf(entry);
     }
 
+    @Override
     public void requestSet(final @NotNull List<Map.Entry<AItemLike, ToolTransformation>> newList) {
         this.entries.clear();
         this.entries.addAll(createEntries(newList));
         this.onRefresh();
     }
 
+    @Override
     public boolean changed() {
         return !this.stateManager.isSynced();
     }
 
+    @Override
     public boolean applyValue() {
         if (this.changed()) {
             this.stateManager.apply();
@@ -164,22 +181,27 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         }
     }
 
+    @Override
     public void forgetPendingValue() {
         this.stateManager.sync();
     }
 
+    @Override
     public void requestSetDefault() {
         this.stateManager.resetToDefault(StateManager.ResetAction.BY_OPTION);
     }
 
+    @Override
     public boolean isPendingValueDefault() {
         return this.stateManager.isDefault();
     }
 
+    @Override
     public boolean available() {
         return this.available;
     }
 
+    @Override
     public void setAvailable(boolean available) {
         boolean changed = this.available != available;
         this.available = available;
@@ -192,31 +214,38 @@ public class ButtonList implements ListOption<Map.Entry<AItemLike, ToolTransform
         }
     }
 
+    @Override
     public int numberOfEntries() {
         return this.entries.size();
     }
 
+    @Override
     public int maximumNumberOfEntries() {
         return this.maximumNumberOfEntries;
     }
 
+    @Override
     public int minimumNumberOfEntries() {
         return this.minimumNumberOfEntries;
     }
 
+    @Override
     public void addEventListener(OptionEventListener<List<Map.Entry<AItemLike, ToolTransformation>>> listener) {
         this.listeners.add(listener);
     }
 
+    @Override
     @Deprecated
     public void addListener(BiConsumer<Option<List<Map.Entry<AItemLike, ToolTransformation>>>, List<Map.Entry<AItemLike, ToolTransformation>>> changedListener) {
         addEventListener((opt, event) -> changedListener.accept(opt, opt.pendingValue()));
     }
 
+    @Override
     public void addRefreshListener(Runnable changedListener) {
         this.refreshListeners.add(changedListener);
     }
 
+    @Override
     public boolean isRoot() {
         return false;
     }

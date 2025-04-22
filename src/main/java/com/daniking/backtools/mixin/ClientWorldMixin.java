@@ -48,7 +48,7 @@ public abstract class ClientWorldMixin {
     private final @NotNull Map<@NotNull UUID, @NotNull Collection<@NotNull HeldItemContext>> thrownItems = new HashMap<>(8);
 
     @Shadow
-    protected abstract EntityLookup<Entity> getEntityLookup();
+    protected abstract @NotNull EntityLookup<Entity> getEntityLookup();
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onLoad(

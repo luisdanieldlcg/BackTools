@@ -9,7 +9,7 @@ import com.google.gson.stream.JsonWriter;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JavaOps;
 import com.mojang.serialization.JsonOps;
 import dev.isxander.yacl3.config.v2.api.ConfigClassHandler;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
@@ -58,8 +58,9 @@ public class ConfigHandler {
     private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Utils.linkedHashMapOf();
 
     private @NotNull RegistryWrapper.WrapperLookup wrapperLookup = CommandRegistryAccess.of(BuiltinRegistries.createWrapperLookup(), FeatureFlags.FEATURE_MANAGER.getFeatureSet());
-    private @NotNull DynamicOps<JsonElement> dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
-    private @NotNull DynamicOps<NbtElement> dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
+    private @NotNull RegistryOps<JsonElement> dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
+    private @NotNull RegistryOps<NbtElement> dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
+    private @NotNull RegistryOps<Object> dynamicJavaOps = RegistryOps.of(JavaOps.INSTANCE, wrapperLookup);
 
     private final @NotNull ConfigClassHandler<BackToolsConfig> yaclHandler = ConfigClassHandler.createBuilder(BackToolsConfig.class).
         id(Identifier.of(BackTools.modID, "general_config")).
@@ -190,6 +191,7 @@ public class ConfigHandler {
         if (this.wrapperLookup != wrapperLookup) {
             this.dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);
             this.dynamicNBTOps = RegistryOps.of(NbtOps.INSTANCE, wrapperLookup);
+            this.dynamicJavaOps = RegistryOps.of(JavaOps.INSTANCE, wrapperLookup);
             this.wrapperLookup = wrapperLookup;
             reload(true);
         }
@@ -356,12 +358,16 @@ public class ConfigHandler {
         return Registries.ITEM.getEntry(item).getKey().map(RegistryKey::getValue).orElse(null); // todo figure out how the access the dynamic registry for this and solve how ItemLikes can access this before this instance was fully created
     }
 
-    public @NotNull DynamicOps<JsonElement> getDynamicJSONOps() {
+    public @NotNull RegistryOps<JsonElement> getDynamicJSONOps() {
         return dynamicJSONOps;
     }
 
-    public @NotNull DynamicOps<NbtElement> getDynamicNBTOps() {
+    public @NotNull RegistryOps<NbtElement> getDynamicNBTOps() {
         return dynamicNBTOps;
+    }
+
+    public @NotNull RegistryOps<Object> getDynamicJavaOps() {
+        return dynamicJavaOps;
     }
 
     public @NotNull RegistryWrapper<Item> accessItemRegistry() throws IllegalStateException {

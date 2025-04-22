@@ -18,13 +18,11 @@ import java.util.List;
 import java.util.SequencedMap;
 
 public class ItemTagControllerElement extends AbstractDropdownControllerElement<AItemLike, String> {
-    private final ItemTagController itemTagController;
     protected @Nullable AItemLike currentItemLike = null;
     protected SequencedMap<String, @NotNull AItemLike> matchingItems = new LinkedHashMap<>();
 
     public ItemTagControllerElement(final @NotNull ItemTagController control, final @NotNull YACLScreen screen, final @NotNull Dimension<@NotNull Integer> dim) {
         super(control, screen, dim);
-        this.itemTagController = control;
     }
 
     @Override
@@ -45,7 +43,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         }
     }
 
-    private @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> getMatchingItemIdentifiers(final String value) {
+    private @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> getMatchingItemIdentifiers(final @NotNull String value) {
         final @NotNull SequencedMap<@NotNull String, @NotNull AItemLike> result = new LinkedHashMap<>();
 
         // register the tickables in the ticker and map the identifiers to string.
@@ -88,7 +86,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
     }
 
     @Override
-    public String getString(String identifier) {
+    public @NotNull String getString(final @NotNull String identifier) {
         return identifier;
     }
 
@@ -109,12 +107,12 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
 
     @Override
     protected Text getValueText() {
-        if (inputField.isEmpty() || itemTagController == null) {
+        if (inputField.isEmpty() || control == null) {
             return super.getValueText();
         } else if (inputFieldFocused) {
             return Text.literal(inputField);
         } else {
-            final AItemLike pendingValue = itemTagController.option().pendingValue();
+            final AItemLike pendingValue = ((ItemTagController)control).option().pendingValue();
 
             if (pendingValue instanceof AItemLike.DirectItemLike) {
                 return pendingValue.getDisplayItem().getName();

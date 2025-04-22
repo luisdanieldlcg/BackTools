@@ -30,22 +30,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-@SuppressWarnings("ClassExplicitlyExtendsObject") // we need to explicitly extend Object to inherit doc for equals (IntelliJ IDEA 2024.3.5 (Community Edition))
+@SuppressWarnings("ClassExplicitlyExtendsObject")
+// we need to explicitly extend Object to inherit doc for equals (IntelliJ IDEA 2024.3.5 (Community Edition))
 @Environment(EnvType.CLIENT)
 public class ToolTransformation extends Object {
     private final static ToolTransformation EMPTY = new ToolTransformationBuilder().build();
     private final static ToolTransformationTypAdapter ADAPTER_INSTANCE = new ToolTransformationTypAdapter();
 
-    private final @Nullable ComponentChanges componentChanges;
     /**
-     * Sometimes the component changes above can't get deserialized.
+     * Sometimes the component changes can't get deserialized.
      * And that's not even an error per se, since data packs can make some components (in)valid.
      * If the pack is missing, we can't deserialize the components.
      * So in order to not lose data if the config was reloaded in a world without the datapack,
      * we just keep the parsed JsonElement, and write it back to config as is,
      * while marking this ToolTransformation as invalid, so it doesn't get ever applied.
      */
-    private final transient @Nullable JsonElement invalidChanges;
+    private final @NotNull Either<@NotNull JsonElement, @Nullable ComponentChanges> changesEither;
+
     private final float rotationX;
     private final float rotationY;
     private final float rotationZ;
@@ -62,13 +63,12 @@ public class ToolTransformation extends Object {
      * @see #empty()
      * @see #builder()
      */
-    protected ToolTransformation(@Nullable ComponentChanges componentChanges, @Nullable JsonElement invalidChanges,
+    protected ToolTransformation(final @NotNull Either<@NotNull JsonElement, @Nullable ComponentChanges> changesEither,
                                  float offsetX, float offsetY, float offsetZ,
                                  float rotationX, float rotationY, float rotationZ,
                                  @Range(from = 0, to = Integer.MAX_VALUE) float scaleX, @Range(from = 0, to = Integer.MAX_VALUE) float scaleY, @Range(from = 0, to = Integer.MAX_VALUE) float scaleZ,
                                  boolean isSymmetric, boolean isBlacklisted) {
-        this.componentChanges = componentChanges;
-        this.invalidChanges = invalidChanges;
+        this.changesEither = changesEither;
         this.rotationX = rotationX;
         this.rotationY = rotationY;
         this.rotationZ = rotationZ;
@@ -91,7 +91,7 @@ public class ToolTransformation extends Object {
     }
 
     public boolean isInvalid() {
-        return invalidChanges == null;
+        return changesEither.isLeft();
     }
 
     /**
@@ -104,14 +104,17 @@ public class ToolTransformation extends Object {
     public boolean matches(final @Nullable ComponentChanges otherComponentChanges) {
         if (this.isInvalid()) { // should never happen, since the ConfigHandler will sort out all invalid entries
             return false;
-        } else if (this.componentChanges == otherComponentChanges) {
+        }
+        final @Nullable ComponentChanges componentChanges = this.changesEither.getRight();
+
+        if (componentChanges == otherComponentChanges) {
             return true;
-        } else if (this.componentChanges == null || this.componentChanges.isEmpty()) {
+        } else if (componentChanges == null || componentChanges.isEmpty()) {
             return true;
         } else if (otherComponentChanges == null || otherComponentChanges.isEmpty()) {
             return false;
         } else { // both != null
-            for (final @NotNull Map.Entry<@NotNull ComponentType<?>, @NotNull Optional<?>> entry : this.componentChanges.entrySet()) {
+            for (final @NotNull Map.Entry<@NotNull ComponentType<?>, @NotNull Optional<?>> entry : componentChanges.entrySet()) {
                 if (!entry.getValue().equals(otherComponentChanges.get(entry.getKey()))) {
                     return false;
                 }
@@ -132,7 +135,7 @@ public class ToolTransformation extends Object {
             return false; // this.isInvalid gets checked in the other method; should never happen, since the ConfigHandler will sort out all invalid entries
         }
 
-        return matches(otherToolTransformation.componentChanges);
+        return matches(otherToolTransformation.changesEither.getRight());
     }
 
     public float rotationX() {
@@ -180,17 +183,16 @@ public class ToolTransformation extends Object {
     }
 
     public @NotNull ItemStack createStack(final @NotNull Item item) {
-        if (componentChanges == null) {
+        if (changesEither.isLeft() || changesEither.getRight() == null) {
             return new ItemStack(item);
         } else {
-            return new ItemStack(Registries.ITEM.getEntry(item), 1, componentChanges); // todo use dynamic registry from ConfigHandler
+            return new ItemStack(Registries.ITEM.getEntry(item), 1, changesEither.getRight()); // todo use dynamic registry from ConfigHandler
         }
     }
 
     public @NotNull ToolTransformationBuilder toBuilder() {
         return new ToolTransformationBuilder().
-            invalidComponentChanges(this.invalidChanges).
-            componentChanges(this.componentChanges).
+            eitherComponentChanges(this.changesEither).
             offsetX(this.offsetX).
             offsetY(this.offsetY).
             offsetZ(this.offsetZ).
@@ -211,7 +213,7 @@ public class ToolTransformation extends Object {
     @Override
     public @NotNull String toString() {
         return "ToolTransformation[" +
-            "componentChanges: " + componentChanges + ", " +
+            "componentChanges: " + this.changesEither + ", " +
             "rotationX = " + rotationX + ", " +
             "rotationY = " + rotationY + ", " +
             "rotationZ = " + rotationZ + ", " +
@@ -228,7 +230,7 @@ public class ToolTransformation extends Object {
 
     @Override
     public int hashCode() {
-        return Objects.hash(componentChanges,
+        return Objects.hash(changesEither.getRightOrElse(null),
             rotationX, rotationY, rotationZ,
             offsetX, offsetY, offsetZ,
             scaleX, scaleY, scaleZ,
@@ -246,8 +248,11 @@ public class ToolTransformation extends Object {
         if (obj == this) return true;
 
         if (obj instanceof ToolTransformation other) {
-            return Objects.equals(this.componentChanges, other.componentChanges) &&
-                this.rotationX == other.rotationX && this.rotationY == other.rotationY && this.rotationZ == other.rotationZ &&
+            return this.changesEither.isLeft() == other.changesEither.isLeft() &&
+                this.changesEither.fold(
+                    jsonElement -> true,
+                    componentChanges -> Objects.equals(componentChanges, other.changesEither.getRightOrElse(null))
+                ) && this.rotationX == other.rotationX && this.rotationY == other.rotationY && this.rotationZ == other.rotationZ &&
                 this.offsetX == other.offsetX && this.offsetY == other.offsetY && this.offsetZ == other.offsetZ &&
                 this.scaleX == other.scaleX && this.scaleY == other.scaleY && this.scaleZ == other.scaleZ &&
                 this.isSymmetric == other.isSymmetric && this.isBlacklisted == other.isBlacklisted;
@@ -257,8 +262,7 @@ public class ToolTransformation extends Object {
     }
 
     public static class ToolTransformationBuilder {
-        private @Nullable ComponentChanges changes = null;
-        private @Nullable JsonElement invalidComponentChanges = null;
+        private @NotNull Either<@NotNull JsonElement, @NotNull ComponentChanges> changesEither = Either.right(null);
         private float offsetX = 0f;
         private float offsetY = 0f;
         private float offsetZ = 0f;
@@ -316,20 +320,25 @@ public class ToolTransformation extends Object {
         }
 
         public boolean isValid() {
-            return invalidComponentChanges == null;
+            return changesEither.isRight();
         }
 
         public @NotNull ToolTransformationBuilder componentChanges(@Nullable ComponentChanges componentChanges) {
-            this.changes = componentChanges;
+            changesEither = changesEither.<@Nullable ComponentChanges>mapRight(ignored -> componentChanges);
 
             return this;
         }
 
         protected @NotNull ToolTransformationBuilder invalidComponentChanges(@Nullable JsonElement invalidComponentChanges) {
             if (invalidComponentChanges != null) {
-                this.changes = null;
-                this.invalidComponentChanges = invalidComponentChanges;
+                changesEither = Either.left(invalidComponentChanges);
             }
+
+            return this;
+        }
+
+        protected @NotNull ToolTransformationBuilder eitherComponentChanges(@NotNull Either<@NotNull JsonElement, @Nullable ComponentChanges> changesEither) {
+            this.changesEither = changesEither;
 
             return this;
         }
@@ -401,16 +410,14 @@ public class ToolTransformation extends Object {
         }
 
         public @NotNull ItemStack createStack(final @NotNull Item item) {
-            if (changes == null) {
-                return new ItemStack(item);
-            } else {
-                return new ItemStack(Registries.ITEM.getEntry(item), 1, changes); // todo use dynamic registry from ConfigHandler
-            }
+            return changesEither.fold(
+                ignored -> new ItemStack(item),
+                componentChanges -> new ItemStack(Registries.ITEM.getEntry(item), 1, componentChanges)); // todo use dynamic registry from ConfigHandler
         }
 
         public @NotNull ToolTransformation build() {
             return new ToolTransformation(
-                changes, invalidComponentChanges,
+                changesEither,
                 offsetX, offsetY, offsetZ, rotationX, rotationY, rotationZ,
                 scaleX, scaleY, scaleZ,
                 isSymmetric, isBlacklisted);
@@ -438,34 +445,37 @@ public class ToolTransformation extends Object {
         public void write(final @NotNull JsonWriter jsonWriter, final @NotNull ToolTransformation toolTransformation) throws IOException {
             jsonWriter.beginObject();
 
-            if (toolTransformation.invalidChanges != null) {
-                jsonWriter.name(COMPONENTS_KEY);
-                Streams.write(toolTransformation.invalidChanges, jsonWriter);
+            toolTransformation.changesEither.runExceptionally(
+                jsonElement -> {
+                    jsonWriter.name(COMPONENTS_KEY);
+                    Streams.write(jsonElement, jsonWriter);
+                }, componentChanges -> {
+                    if (componentChanges != null && !componentChanges.isEmpty()) {
+                        // add data version to funnel the components though dataFixerUpper when reading back
+                        // you may ask why add this version to every option and not just globally in the config?
+                        // After all it already has a version incorporated into it. Combining them wouldn't be that bad / hard, right?
+                        // And component entries will be read, doesn't it?
+                        // Good question. What you may not have thought of is, that a Tooltransformation can dail to deserialize and will just stay effectively the same,
+                        // until one day it is valid and can be loaded.
+                        // this may lead to very different data versions across the config, only loaded once the datapack is also loaded.
+                        jsonWriter.name(DATA_VERSION_KEY);
+                        jsonWriter.value(SharedConstants.getGameVersion().getSaveVersion().getId());
 
-            } else if (toolTransformation.componentChanges != null && !toolTransformation.componentChanges.isEmpty()) {
-                // add data version to funnel the components though dataFixerUpper when reading back
-                // you may ask why add this version to every option and not just globally in the config?
-                // After all it already has a version incorporated into it. Combining them wouldn't be that bad / hard, right?
-                // And component entries will be read, doesn't it?
-                // Good question. What you may not have thought of is, that a Tooltransformation can dail to deserialize and will just stay effectively the same,
-                // until one day it is valid and can be loaded.
-                // this may lead to very different data versions across the config, only loaded once the datapack is also loaded.
-                jsonWriter.name(DATA_VERSION_KEY);
-                jsonWriter.value(SharedConstants.getGameVersion().getSaveVersion().getId());
+                        jsonWriter.name(COMPONENTS_KEY);
 
-                jsonWriter.name(COMPONENTS_KEY);
-
-                final Strictness strictnessBefore = jsonWriter.getStrictness();
-                jsonWriter.setStrictness(Strictness.LENIENT);
-                Streams.write( // encode to nbt and convert to json, since our config has to be written in json, but using dataFixerUpper when reading it is done in nbt. So in order to avoid issues where just encoding it in json but reading it in json converting to nbt, using dfu, and then decoding it back to ComponentChanges just do the reverse when writing.
-                    Codecs.fromOps(BackTools.getConfigHandler().getDynamicNBTOps()).encodeStart(
-                        BackTools.getConfigHandler().getDynamicJSONOps(), ComponentChanges.CODEC.encodeStart(
-                            BackTools.getConfigHandler().getDynamicNBTOps(), toolTransformation.componentChanges
-                        ).getOrThrow(IOException::new)
-                    ).getOrThrow(IOException::new), jsonWriter
-                );
-                jsonWriter.setStrictness(strictnessBefore);
-            }
+                        final Strictness strictnessBefore = jsonWriter.getStrictness();
+                        jsonWriter.setStrictness(Strictness.LENIENT);
+                        Streams.write( // encode to nbt and convert to json, since our config has to be written in json, but using dataFixerUpper when reading it is done in nbt. So in order to avoid issues where just encoding it in json but reading it in json converting to nbt, using dfu, and then decoding it back to ComponentChanges just do the reverse when writing.
+                            Codecs.fromOps(BackTools.getConfigHandler().getDynamicNBTOps()).encodeStart(
+                                BackTools.getConfigHandler().getDynamicJSONOps(), ComponentChanges.CODEC.encodeStart(
+                                    BackTools.getConfigHandler().getDynamicNBTOps(), componentChanges
+                                ).getOrThrow(IOException::new)
+                            ).getOrThrow(IOException::new), jsonWriter
+                        );
+                        jsonWriter.setStrictness(strictnessBefore);
+                    }
+                }
+            );
 
             if (toolTransformation.offsetX() != 0 || toolTransformation.offsetY() != 0 || toolTransformation.offsetZ() != 0) {
                 jsonWriter.name(OFFSET_KEY);
@@ -627,21 +637,22 @@ public class ToolTransformation extends Object {
                     final @Nullable JsonElement finalSerializedComponentChanges = serializedComponentChanges;
                     final int finalVanillaComponentDataVersion = vanillaComponentDataVersion;
 
-                    Codecs.fromOps(BackTools.getConfigHandler().getDynamicJSONOps()).encodeStart(BackTools.getConfigHandler().getDynamicNBTOps(), serializedComponentChanges).ifError(errPair -> {
-                        BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad json decode / nbt convert). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
-
-                        builder.invalidComponentChanges(finalSerializedComponentChanges);
-                    }).ifSuccess(rawNBTElement -> {
-                        final @NotNull NbtElement updatedNBTElement = MinecraftClient.getInstance().getDataFixer().update(TypeReferences.ITEM_STACK, new Dynamic<>(BackTools.getConfigHandler().getDynamicNBTOps(), rawNBTElement), finalVanillaComponentDataVersion, SharedConstants.getGameVersion().getSaveVersion().getId()).getValue();
-
-                        ComponentChanges.CODEC.parse(BackTools.getConfigHandler().getDynamicNBTOps(), updatedNBTElement).ifError(errPair -> {
-                            BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad nbt parse). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
+                    Codecs.fromOps(BackTools.getConfigHandler().getDynamicJSONOps()).encodeStart(BackTools.getConfigHandler().getDynamicNBTOps(), serializedComponentChanges).
+                        ifError(errPair -> {
+                            BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad json decode / nbt convert). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
 
                             builder.invalidComponentChanges(finalSerializedComponentChanges);
-                        }).ifSuccess(componentChanges -> {
-                            builder.componentChanges(componentChanges);
+                        }).ifSuccess(rawNBTElement -> {
+                            final @NotNull NbtElement updatedNBTElement = MinecraftClient.getInstance().getDataFixer().update(TypeReferences.ITEM_STACK, new Dynamic<>(BackTools.getConfigHandler().getDynamicNBTOps(), rawNBTElement), finalVanillaComponentDataVersion, SharedConstants.getGameVersion().getSaveVersion().getId()).getValue();
+
+                            ComponentChanges.CODEC.parse(BackTools.getConfigHandler().getDynamicNBTOps(), updatedNBTElement).ifError(errPair -> {
+                                BackTools.LOGGER.warn("Skipped configured element, because it's components are invalid in current context (bad nbt parse). This may happen if a data pack is missing or it was misconfigured. {}", errPair.message());
+
+                                builder.invalidComponentChanges(finalSerializedComponentChanges);
+                            }).ifSuccess(componentChanges -> {
+                                builder.componentChanges(componentChanges);
+                            });
                         });
-                    });
                 }
             }
 

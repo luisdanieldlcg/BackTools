@@ -2,21 +2,25 @@ package com.daniking.backtools.config.menu;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
+import com.daniking.backtools.config.Either;
 import com.daniking.backtools.config.ToolTransformation;
 import com.daniking.backtools.config.menu.yacl.ButtonList;
+import com.daniking.backtools.config.menu.yacl.ComponentController;
+import com.daniking.backtools.config.menu.yacl.ComponentOption;
 import com.daniking.backtools.config.menu.yacl.ToolTransformationScreen;
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonElement;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
-import dev.isxander.yacl3.api.ConfigCategory;
-import dev.isxander.yacl3.api.Option;
-import dev.isxander.yacl3.api.OptionDescription;
-import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.component.ComponentChanges;
 import net.minecraft.text.Text;
 
+import java.util.List;
 import java.util.Map;
 
 @Environment(value = EnvType.CLIENT)
@@ -71,6 +75,33 @@ public class ModMenuIntegration implements ModMenuApi {
                             option -> BooleanControllerBuilder.create(option).
                                 onOffFormatter()
                         ).build()
+                    ).option(
+                        new ComponentOption(Text.literal("Components"),
+                            OptionDescription.EMPTY,
+                            ComponentController::new,
+                            StateManager.createSimple(new Binding<>() {
+                                Either<JsonElement, ComponentChanges> pendingValue = Either.right(ComponentChanges.EMPTY);
+
+                                @Override
+                                public void setValue(Either<JsonElement, ComponentChanges> changesEither) {
+                                    BackTools.LOGGER.info("Setting component value to {}", changesEither);
+                                    pendingValue = changesEither;
+                                }
+
+                                @Override
+                                public Either<JsonElement, ComponentChanges> getValue() {
+                                  //  BackTools.LOGGER.info("Getting component value as {}", pendingValue);
+                                    return pendingValue;
+                                }
+
+                                @Override
+                                public Either<JsonElement, ComponentChanges> defaultValue() {
+                                    return Either.right(ComponentChanges.EMPTY);
+                                }
+                            }), ImmutableSet.of(),
+                            true,
+                            List.of()
+                            )
                     ).build()
             ).category(
                 ConfigCategory.createBuilder().
