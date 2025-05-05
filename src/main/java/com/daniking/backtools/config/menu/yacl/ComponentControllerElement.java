@@ -2,11 +2,10 @@ package com.daniking.backtools.config.menu.yacl;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.Either;
+import com.daniking.backtools.config.menu.yacl.StringJsonReader.PeekStatus;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.google.gson.Strictness;
-import com.google.gson.stream.JsonToken;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -34,12 +33,9 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+// todo multiline
 public class ComponentControllerElement extends AbstractDropdownControllerElement<@NotNull Either<@NotNull JsonElement, @Nullable ComponentChanges>, String> {
-    protected static final Pattern CLOSED_CURLY_BRACKET_PATTERN = Pattern.compile("}\\s*$");
-    protected static final char OPEN_CURLY_BRACKET = '{';
-    protected static final String CLOSED_CURLY_BRACKET = "}";
-    protected static final char COMMA = ',';
-    protected static final char COLON = ':';
+    protected static final Pattern CLOSED_CURLY_BRACKET_PATTERN = Pattern.compile(StringJsonReader.CLOSE_OBJECT_CHAR + "\\s*$");
     protected static final String EXCLAMATION_MARK = "!";
 
     public ComponentControllerElement(final @NotNull ComponentController control,
@@ -142,20 +138,21 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
         }
 
         final @NotNull StringJsonReader jsonReader = new StringJsonReader(inputField);
-        jsonReader.setStrictness(Strictness.LENIENT);
 
         try {
-            if (jsonReader.peek() == JsonToken.BEGIN_OBJECT) {
-                jsonReader.beginObject();
-
+            if (jsonReader.tryBeginObject()) {
                 final boolean isClosed = CLOSED_CURLY_BRACKET_PATTERN.matcher(inputField).find();
                 final @NotNull Set<@NotNull ComponentType<?>> alreadyAddedComponents = new ReferenceArraySet<>();
                 int posBefore = jsonReader.getPosition();
 
-                while (jsonReader.peek() == JsonToken.NAME) {
-                    posBefore = jsonReader.getPosition();
+                @NotNull PeekStatus peekStatus = jsonReader.doPeek();
+                while (
+                    peekStatus == PeekStatus.DANGLING_NAME ||
+                    peekStatus == PeekStatus.SINGLE_QUOTED_NAME ||
+                    peekStatus == PeekStatus.DOUBLE_QUOTED_NAME ||
+                    peekStatus == PeekStatus.UNQUOTED_NAME) {
 
-                    final boolean isQuoted = jsonReader.structurePeek() == StringJsonReader.StructureJsonToken.QUOTED_NAME;
+                    final boolean isQuoted = peekStatus == PeekStatus.SINGLE_QUOTED_NAME || peekStatus == PeekStatus.DOUBLE_QUOTED_NAME;
                     final @NotNull Either<String, String> nameFetchEither = jsonReader.tryNextName();
 
                     if (nameFetchEither.isLeft()) {
@@ -172,9 +169,9 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                             if (alreadyAddedComponents.add(componentType)) {
                                 posBefore = jsonReader.getPosition();
 
-                                final StringJsonReader.StructureJsonToken structureJsonToken = jsonReader.structurePeek();
+                                peekStatus = jsonReader.doPeek();
                                 if (posBefore <= caretPos && caretPos < jsonReader.getPosition() &&
-                                    structureJsonToken == StringJsonReader.StructureJsonToken.DANGLING_NAME) {
+                                    peekStatus == PeekStatus.DANGLING_NAME) {
                                     return List.of(inputField.substring(0, caretPos) + ":{}" + inputField.substring(caretPos));
                                 }
 
@@ -208,15 +205,15 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                             if (alreadyAddedComponents.add(componentType)) {
                                 posBefore = jsonReader.getPosition();
 
-                                final StringJsonReader.StructureJsonToken structureJsonToken = jsonReader.structurePeek();
+                                peekStatus = jsonReader.doPeek();
                                 if (posBefore <= caretPos && caretPos < jsonReader.getPosition() &&
-                                    structureJsonToken == StringJsonReader.StructureJsonToken.DANGLING_NAME) {
-                                    return List.of(inputField.substring(0, caretPos) + COLON + inputField.substring(caretPos));
+                                    peekStatus == PeekStatus.DANGLING_NAME) {
+                                    return List.of(inputField.substring(0, caretPos) + StringJsonReader.KEY_VALUE_SEPARATOR + inputField.substring(caretPos));
                                 }
 
                                 posBefore = jsonReader.getPosition();
-                                switch (jsonReader.structurePeek()) {
-                                    case QUOTED_VALUE,
+                                switch (jsonReader.doPeek()) {
+                                    case SINGLE_QUOTED_VALUE, DOUBLE_QUOTED_VALUE,
                                          BEGIN_ARRAY,
                                          BEGIN_OBJECT,
                                          UNQUOTED_VALUE, NULL-> { // todo currently we have no assistance in creating component values
@@ -232,18 +229,18 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
 
                                                 if (inputField.length() > caretPos) {
                                                     // Handle case when the caret is within the text
-                                                    suggestions.add(inputField.substring(0, caretPos) + COMMA + inputField.substring(caretPos));
+                                                    suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.COMMA_CHAR + inputField.substring(caretPos));
                                                     if (!isClosed) {
                                                         BackTools.LOGGER.info("1?");
-                                                        suggestions.add(inputField.substring(0, caretPos) + CLOSED_CURLY_BRACKET + inputField.substring(caretPos));
+                                                        suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR + inputField.substring(caretPos));
                                                     }
                                                 } else {
                                                     // Handle case when the caret is at the end
-                                                    suggestions.add(inputField + COMMA);
+                                                    suggestions.add(inputField + StringJsonReader.COMMA_CHAR);
                                                     if (!isClosed) {
                                                         BackTools.LOGGER.info("2?");
 
-                                                        suggestions.add(inputField + CLOSED_CURLY_BRACKET);
+                                                        suggestions.add(inputField + StringJsonReader.CLOSE_OBJECT_CHAR);
                                                     }
                                                 }
 
@@ -254,7 +251,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                                         }
                                     }
                                     case END_DOCUMENT, // no closing curly bracket, no value
-                                         END_OBJECT, QUOTED_NAME, UNQUOTED_NAME, // no value
+                                         END_OBJECT, SINGLE_QUOTED_NAME, DOUBLE_QUOTED_NAME, UNQUOTED_NAME, // no value
                                          END_ARRAY /* unexpected */ -> {
                                              if (caretPos == posBefore) {
                                                  return Collections.emptyList();
@@ -285,6 +282,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                     }
 
                     posBefore = jsonReader.getPosition();
+                    peekStatus = jsonReader.doPeek();
                 }
 
                 // before:
@@ -297,7 +295,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 // caretPos: 2, jsonReader.getPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
 
 
-                BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getPosition(): " + jsonReader.getPosition() + ", jsonReader.structurePeek(): " + jsonReader.structurePeek() + ", posBefore: " + posBefore + ", posAfter: " + jsonReader.getPosition());
+                BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getPosition(): " + jsonReader.getPosition() + ", doPeek: " + jsonReader.doPeek() + ", posBefore: " + posBefore + ", posAfter: " + jsonReader.getPosition());
 
                 final @NotNull List<@NotNull String> result = new ArrayList<>();
 //                final boolean anyComponentsAdded = !alreadyAddedComponents.isEmpty();
@@ -323,12 +321,12 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 BackTools.LOGGER.info("isClosed? " + isClosed + ", length: " + inputField.replaceAll("\\s+$", "").length() + ", caretPos: " + caretPos);
                 if (!isClosed && inputField.replaceAll("\\s+$", "").length() == caretPos) { // ignore tailing whitespace
                     BackTools.LOGGER.info("3?");
-                    result.add(inputField.substring(0, caretPos) + CLOSED_CURLY_BRACKET);
+                    result.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR);
                 }
 
                 return result;
             } else {
-                return List.of(OPEN_CURLY_BRACKET + inputField);
+                return List.of(StringJsonReader.OPEN_OBJECT_CHAR + inputField);
             }
         } catch (final @NotNull IOException ignored) {
             BackTools.LOGGER.info("Error parsing JSON: ", ignored);
@@ -345,7 +343,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
         final @NotNull String suffix
     ){
         boolean hasRemainingInput = inputField.length() > pos;
-        String comma = insertComma ? String.valueOf(COMMA) : "";
+        String comma = insertComma ? String.valueOf(StringJsonReader.COMMA_CHAR) : "";
         String remaining = hasRemainingInput ? inputField.substring(pos) : "";
 
         BackTools.LOGGER.info("adding components to result: " + componentTypesToAdd.size() + ", insertComma: " + insertComma + ", suffix: " + suffix + ", remaining: " + remaining + ", pos: " + pos);
@@ -396,7 +394,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
     }
 
     private <T> @Nullable T readComponentValue(final @NotNull StringJsonReader jsonReader, final @NotNull ComponentType<T> type) throws JsonParseException {
-        final @NotNull JsonElement jsonElement = JsonParser.parseReader(jsonReader);
+        final @NotNull JsonElement jsonElement = JsonParser.parseReader(jsonReader.getPartReaderAtPos());
         final @Nullable Codec<T> valueCodec = type.getCodec();
 
         if (valueCodec != null) {
