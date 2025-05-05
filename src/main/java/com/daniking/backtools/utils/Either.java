@@ -1,4 +1,4 @@
-package com.daniking.backtools.config;
+package com.daniking.backtools.utils;
 
 import java.util.function.Consumer;
 import java.util.function.Function;

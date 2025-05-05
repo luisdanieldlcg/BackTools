@@ -1,6 +1,6 @@
 package com.daniking.backtools.config;
 
-import com.daniking.backtools.Utils;
+import com.daniking.backtools.utils.LinkedHashMapFactory;
 import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -44,7 +44,7 @@ public class BackToolsConfig {
     @SerialEntry // todo communicate later matching (i.e. ones with LESS components) overwrite previous ones
     // note: I'm using Utils.linkedHashMapOf() here, since Map.of() doesn't contain order and java didn't feel the need to add SequencedMap.of
     // also, Googles LinkedTreeMap (the default map gson uses) is NOT a Sequenced Map. So we have to use an specific implementation here!
-    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> backTools = Utils.linkedHashMapOf(
+    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> backTools = LinkedHashMapFactory.linkedHashMapOf(
         AItemLike.fromTag(ItemTags.PICKAXES), ToolTransformation.empty(),
         AItemLike.fromTag(ItemTags.AXES), ToolTransformation.empty(),
         AItemLike.fromTag(ItemTags.SHOVELS), ToolTransformation.empty(),
@@ -87,7 +87,7 @@ public class BackToolsConfig {
             build()
     );
     @SerialEntry
-    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> beltTools = Utils.linkedHashMapOf(
+    public LinkedHashMap<@NotNull AItemLike, @NotNull ToolTransformation> beltTools = LinkedHashMapFactory.linkedHashMapOf(
         AItemLike.fromTag(ItemTags.BUNDLES), ToolTransformation.empty(),
         AItemLike.fromItem(Items.POTION), ToolTransformation.empty(),
         AItemLike.fromItem(Items.SPLASH_POTION), ToolTransformation.empty(),

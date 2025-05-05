@@ -1,7 +1,7 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
-import com.daniking.backtools.Utils;
+import com.daniking.backtools.utils.LinkedHashMapFactory;
 import com.google.gson.JsonElement;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
@@ -54,8 +54,8 @@ public class ConfigHandler {
         id -> Text.stringifiedTranslatable("argument.item.id.invalid", id)
     );
     private final static @NotNull Pattern NAMESPACED_PATTERN = Pattern.compile("^(?<isTag>#)?(?:(?<namespace>[_\\-a-z0-9.]*):)?(?<path>[_\\-a-z0-9/.]*)$");
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = Utils.linkedHashMapOf();
-    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = Utils.linkedHashMapOf();
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> backConfigurations = LinkedHashMapFactory.linkedHashMapOf();
+    private @NotNull SequencedMap<@NotNull Item, @NotNull SequencedSet<@NotNull ToolTransformation>> beltConfigurations = LinkedHashMapFactory.linkedHashMapOf();
 
     private @NotNull RegistryWrapper.WrapperLookup wrapperLookup = CommandRegistryAccess.of(BuiltinRegistries.createWrapperLookup(), FeatureFlags.FEATURE_MANAGER.getFeatureSet());
     private @NotNull RegistryOps<JsonElement> dynamicJSONOps = RegistryOps.of(JsonOps.INSTANCE, wrapperLookup);

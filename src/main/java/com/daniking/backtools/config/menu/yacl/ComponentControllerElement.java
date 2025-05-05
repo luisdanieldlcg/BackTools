@@ -1,8 +1,9 @@
 package com.daniking.backtools.config.menu.yacl;
 
 import com.daniking.backtools.BackTools;
-import com.daniking.backtools.config.Either;
-import com.daniking.backtools.config.menu.yacl.StringJsonReader.PeekStatus;
+import com.daniking.backtools.utils.Either;
+import com.daniking.backtools.utils.StringJsonReader;
+import com.daniking.backtools.utils.StringJsonReader.PeekStatus;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;

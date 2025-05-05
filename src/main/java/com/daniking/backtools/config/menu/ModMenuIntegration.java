@@ -2,12 +2,12 @@ package com.daniking.backtools.config.menu;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
-import com.daniking.backtools.config.Either;
 import com.daniking.backtools.config.ToolTransformation;
 import com.daniking.backtools.config.menu.yacl.ButtonList;
 import com.daniking.backtools.config.menu.yacl.ComponentController;
 import com.daniking.backtools.config.menu.yacl.ComponentOption;
 import com.daniking.backtools.config.menu.yacl.ToolTransformationScreen;
+import com.daniking.backtools.utils.Either;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonElement;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;

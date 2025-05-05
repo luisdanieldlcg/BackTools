@@ -2,7 +2,7 @@ package com.daniking.backtools.config.menu.yacl;
 
 import com.daniking.backtools.config.AItemLike;
 import com.daniking.backtools.config.ToolTransformation;
-import com.daniking.backtools.config.menu.Ticker;
+import com.daniking.backtools.config.menu.ItemLikeTicker;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.utils.Dimension;
 import dev.isxander.yacl3.gui.AbstractWidget;
@@ -34,7 +34,7 @@ public class ListButtonOption implements ListOptionEntry<Map.Entry<AItemLike, To
         this.stateManager = new EntryStateManager(defaultValue);
         stateManager.addListener((newPendingValue, oldValue) -> {
             if (newPendingValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
-                Ticker.getInstance().startTicking(tagItemLike);
+                ItemLikeTicker.getInstance().startTicking(tagItemLike);
             }
         });
         stateManager.addListener((newPendingValue, oldValue) -> {
@@ -199,7 +199,7 @@ public class ListButtonOption implements ListOptionEntry<Map.Entry<AItemLike, To
             this.currentValue = this.defaultValue;
 
             if (currentValue.getKey() instanceof AItemLike.TagItemLike tagItemLike) {
-                Ticker.getInstance().startTicking(tagItemLike);
+                ItemLikeTicker.getInstance().startTicking(tagItemLike);
             }
         }
 
@@ -259,7 +259,7 @@ public class ListButtonOption implements ListOptionEntry<Map.Entry<AItemLike, To
 
         @Override
         protected void drawValueText(final @NotNull DrawContext graphics, final int mouseX, final int mouseY, final float delta) {
-            Ticker.getInstance().tryToTick();
+            ItemLikeTicker.getInstance().tryToTick();
 
             final Dimension<Integer> oldDimension = this.getDimension();
             this.setDimension(this.getDimension().withWidth(this.getDimension().width() - this.getDecorationPadding()));

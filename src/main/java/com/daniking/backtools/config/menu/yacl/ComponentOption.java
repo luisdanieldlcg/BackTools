@@ -1,6 +1,6 @@
 package com.daniking.backtools.config.menu.yacl;
 
-import com.daniking.backtools.config.Either;
+import com.daniking.backtools.utils.Either;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonElement;
 import dev.isxander.yacl3.api.*;

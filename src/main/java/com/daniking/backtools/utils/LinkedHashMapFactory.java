@@ -1,4 +1,4 @@
-package com.daniking.backtools;
+package com.daniking.backtools.utils;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -7,9 +7,9 @@ import org.jetbrains.annotations.NotNull;
 import java.util.LinkedHashMap;
 
 @Environment(EnvType.CLIENT)
-public class Utils {
+public class LinkedHashMapFactory {
     // no public constructor
-    private Utils () {}
+    private LinkedHashMapFactory() {}
 
     // Why Java? Why is there no "SequencedMap.of()"?
     public static <K, V> @NotNull LinkedHashMap<K, V> linkedHashMapOf(Object... keyValues) {

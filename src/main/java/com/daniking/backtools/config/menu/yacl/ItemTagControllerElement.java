@@ -2,7 +2,7 @@ package com.daniking.backtools.config.menu.yacl;
 
 import com.daniking.backtools.BackTools;
 import com.daniking.backtools.config.AItemLike;
-import com.daniking.backtools.config.menu.Ticker;
+import com.daniking.backtools.config.menu.ItemLikeTicker;
 import dev.isxander.yacl3.api.utils.Dimension;
 import dev.isxander.yacl3.gui.YACLScreen;
 import dev.isxander.yacl3.gui.controllers.dropdown.AbstractDropdownControllerElement;
@@ -27,7 +27,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
 
     @Override
     protected void drawValueText(final @NotNull DrawContext graphics, final int mouseX, final int mouseY, final float delta) {
-        Ticker.getInstance().tryToTick();
+        ItemLikeTicker.getInstance().tryToTick();
 
         Dimension<Integer> oldDimension = this.getDimension();
         this.setDimension(this.getDimension().withWidth(this.getDimension().width() - this.getDecorationPadding()));
@@ -50,7 +50,7 @@ public class ItemTagControllerElement extends AbstractDropdownControllerElement<
         for (final @NotNull AItemLike aItemLike : BackTools.getConfigHandler().readAllFittingItems(value)) { // todo handle invalid tags here if the configHandler couldn't read the tag (since it may be still perfectly fine in another context!) <-- also render some sort of info (hover) text "Could not find in current context, make sure to load the depending datapack or join the server that defines this tag."
             switch (aItemLike) {
                 case AItemLike.TagItemLike tagItemLike -> {
-                    Ticker.getInstance().startTicking(tagItemLike);
+                    ItemLikeTicker.getInstance().startTicking(tagItemLike);
 
                     result.put(tagItemLike.toString(), tagItemLike);
                 }

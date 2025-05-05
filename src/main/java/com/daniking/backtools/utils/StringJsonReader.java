@@ -1,4 +1,4 @@
-package com.daniking.backtools.config.menu.yacl;
+package com.daniking.backtools.utils;
 
 /*
  * This is a heavily modified JsonReader, written by google and licensed under the Apache Licence below.
@@ -21,7 +21,6 @@ package com.daniking.backtools.config.menu.yacl;
  * limitations under the License.
  */
 
-import com.daniking.backtools.config.Either;
 import com.google.gson.internal.TroubleshootingGuide;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.MalformedJsonException;

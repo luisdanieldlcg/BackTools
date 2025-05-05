@@ -1,6 +1,7 @@
 package com.daniking.backtools.config;
 
 import com.daniking.backtools.BackTools;
+import com.daniking.backtools.utils.Either;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
