@@ -147,17 +147,16 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 int posBefore = jsonReader.getPosition();
 
                 @NotNull PeekStatus peekStatus = jsonReader.doPeek();
-                while (
-                    peekStatus == PeekStatus.DANGLING_NAME ||
+                while ( // note: no dangling name here. dangling name means we have already seen the end of the object
                     peekStatus == PeekStatus.SINGLE_QUOTED_NAME ||
                     peekStatus == PeekStatus.DOUBLE_QUOTED_NAME ||
                     peekStatus == PeekStatus.UNQUOTED_NAME) {
 
                     final boolean isQuoted = peekStatus == PeekStatus.SINGLE_QUOTED_NAME || peekStatus == PeekStatus.DOUBLE_QUOTED_NAME;
-                    final @NotNull Either<String, String> nameFetchEither = jsonReader.tryNextName();
+                    final @NotNull Either<@Nullable String, @NotNull String> nameFetchEither = jsonReader.tryNextName();
 
                     if (nameFetchEither.isLeft()) {
-                        return List.of(inputField.substring(0, caretPos) + "\"" + inputField.substring(caretPos)); // the rest of the json is invalid
+                        return List.of(inputField.substring(0, caretPos) + StringJsonReader.DOUBLE_QUOTE_CHAR + inputField.substring(caretPos)); // the rest of the json is invalid
                     }
 
                     final @NotNull String componentTypeStr = nameFetchEither.getRight();
@@ -205,9 +204,9 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                         if  (componentType != null) {
                             if (alreadyAddedComponents.add(componentType)) {
                                 posBefore = jsonReader.getPosition();
-
                                 peekStatus = jsonReader.doPeek();
-                                if (posBefore <= caretPos && caretPos < jsonReader.getPosition() &&
+
+                                if (posBefore <= caretPos && caretPos <= jsonReader.getPosition() &&
                                     peekStatus == PeekStatus.DANGLING_NAME) {
                                     return List.of(inputField.substring(0, caretPos) + StringJsonReader.KEY_VALUE_SEPARATOR + inputField.substring(caretPos));
                                 }

@@ -21,9 +21,7 @@ package com.daniking.backtools.utils;
  * limitations under the License.
  */
 
-import com.google.gson.internal.TroubleshootingGuide;
 import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.MalformedJsonException;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -118,7 +116,7 @@ public class StringJsonReader {
      *
      * @return the success status of this action
      */
-    public boolean tryBeginObject() throws IOException {
+    public boolean tryBeginObject() {
         @NotNull PeekStatus peekStatus = peeked;
         if (peekStatus == PeekStatus.NONE) {
             peekStatus = doPeek();
@@ -139,7 +137,7 @@ public class StringJsonReader {
      *
      * @return the success status of this action
      */
-    public boolean tryEndObject() throws IOException {
+    public boolean tryEndObject() {
         @NotNull PeekStatus peekStatus = peeked;
         if (peekStatus == PeekStatus.NONE) {
             peekStatus = doPeek();
@@ -156,7 +154,7 @@ public class StringJsonReader {
         }
     }
 
-    public @NotNull PeekStatus doPeek() throws IOException {
+    public @NotNull PeekStatus doPeek() {
         final @NotNull JsonScope peekStackNow = stack[stackSize - 1];
         switch (peekStackNow) {
             case EMPTY_ARRAY -> stack[stackSize - 1] = JsonScope.NONEMPTY_ARRAY;
@@ -170,10 +168,10 @@ public class StringJsonReader {
                     case SEMICOLON_CHAR, COMMA_CHAR -> {
                     }
                     case null -> {
-                        return PeekStatus.END_DOCUMENT;
+                        return peeked = PeekStatus.END_DOCUMENT;
                     }
                     default -> {
-                        return PeekStatus.UNTERMINATED_ARRAY;
+                        return peeked = PeekStatus.INVALID_UNTERMINATED_ARRAY;
                     }
                 }
             }
@@ -190,10 +188,10 @@ public class StringJsonReader {
                              COMMA_CHAR -> {
                         }
                         case null -> {
-                            return PeekStatus.END_DOCUMENT;
+                            return peeked = PeekStatus.END_DOCUMENT;
                         }
                         default -> {
-                            return PeekStatus.UNTERMINATED_OBJECT;
+                            return peeked = PeekStatus.INVALID_UNTERMINATED_OBJECT;
                         }
                     }
                 }
@@ -212,11 +210,11 @@ public class StringJsonReader {
                         if (peekStackNow != JsonScope.NONEMPTY_OBJECT) {
                             return peeked = PeekStatus.END_OBJECT;
                         } else {
-                            throw makeSyntaxError("Expected name");
+                            return peeked = PeekStatus.INVALID_MISSING_NAME;
                         }
                     }
                     case null -> {
-                        return PeekStatus.END_DOCUMENT;
+                        return peeked = PeekStatus.END_DOCUMENT;
                     }
                     default -> {
                         pos--; // Don't consume the first character in an unquoted string.
@@ -224,7 +222,7 @@ public class StringJsonReader {
                             stack[stackSize - 1] = JsonScope.DANGLING_NAME;
                             return peeked = PeekStatus.UNQUOTED_NAME;
                         } else {
-                            throw makeSyntaxError("Expected name");
+                            return peeked = PeekStatus.INVALID_MISSING_NAME;
                         }
                     }
                 }
@@ -241,9 +239,9 @@ public class StringJsonReader {
                     case KEY_VALUE_SEPARATOR:
                         stack[stackSize - 1] = JsonScope.NAME_VALUE_SEPARATOR;
 
-                        return PeekStatus.NAME_VALUE_SEPARATOR;
+                        return peeked = PeekStatus.NAME_VALUE_SEPARATOR;
                     case null, default:
-                        return PeekStatus.DANGLING_NAME;
+                        return peeked = PeekStatus.DANGLING_NAME;
                 }
             }
             case NAME_VALUE_SEPARATOR -> stack[stackSize - 1] = JsonScope.NONEMPTY_OBJECT;
@@ -256,7 +254,6 @@ public class StringJsonReader {
                     pos--;
                 }
             }
-            case CLOSED -> throw new IllegalStateException("JsonReader is closed");
         }
 
         final @Nullable Character character = nextNonWhitespace();
@@ -271,7 +268,7 @@ public class StringJsonReader {
                     pos--;
                     return peeked = PeekStatus.NULL;
                 } else {
-                    throw makeSyntaxError("Unexpected value");
+                    return peeked = PeekStatus.INVALID_UNKNOWN;
                 }
             case SINGLE_QUOTE_CHAR:
                 return peeked = PeekStatus.SINGLE_QUOTED_VALUE;
@@ -294,7 +291,7 @@ public class StringJsonReader {
         }
 
         if (!isLiteral(source.charAt(pos))) {
-            throw makeSyntaxError("Expected value");
+            return peeked = PeekStatus.INVALID_UNKNOWN;
         }
 
         return peeked = PeekStatus.UNQUOTED_VALUE;
@@ -469,29 +466,19 @@ public class StringJsonReader {
         };
     }
 
-    public @NotNull Either<@NotNull String, @NotNull String> tryNextName() throws IOException {
+    public @NotNull Either<@NotNull String, @NotNull String> tryNextName() {
         @NotNull PeekStatus peekedStatus = peeked;
         if (peekedStatus == PeekStatus.NONE) {
             peekedStatus = doPeek();
         }
 
-        final @NotNull Either<@NotNull String, @NotNull String> result;
-        if (peekedStatus == PeekStatus.UNQUOTED_NAME) {
-            result = Either.right(nextUnquotedValue());
-        } else if (peekedStatus == PeekStatus.SINGLE_QUOTED_NAME) {
-            result = tryNextQuoted(SINGLE_QUOTE_CHAR);
-        } else if (peekedStatus == PeekStatus.DOUBLE_QUOTED_NAME) {
-            result = tryNextQuoted(DOUBLE_QUOTE_CHAR);
-        } else {
-            // todo just return left here!
-            String troubleshootingId = peekedStatus == PeekStatus.NULL ? "adapter-not-null-safe" : "unexpected-json-structure";
-            throw new IllegalStateException(
-                "Expected a name but was "
-                    + peekedStatus
-                    + locationString()
-                    + "\nSee "
-                    + TroubleshootingGuide.createUrl(troubleshootingId));
-        }
+        final @NotNull Either<@Nullable String, @NotNull String> result;
+        result = switch (peekedStatus) {
+            case UNQUOTED_NAME -> Either.right(nextUnquotedValue());
+            case SINGLE_QUOTED_NAME -> tryNextQuoted(SINGLE_QUOTE_CHAR);
+            case DOUBLE_QUOTED_NAME -> tryNextQuoted(DOUBLE_QUOTE_CHAR);
+            default -> Either.left(null);
+        };
 
         if (result.isRight()) {
             peeked = PeekStatus.NONE;
@@ -500,7 +487,7 @@ public class StringJsonReader {
         return result;
     }
 
-    protected @NotNull Either<@NotNull String, @NotNull String> tryNextQuoted(char quote) throws IOException {
+    protected @NotNull Either<@NotNull String, @NotNull String> tryNextQuoted(char quote) {
         // Like nextNonWhitespace, this uses locals 'posNow' to save inner-loop field access.
         StringBuilder builder = null;
         while (true) {
@@ -527,7 +514,10 @@ public class StringJsonReader {
                         builder = new StringBuilder(Math.max(estimatedLength, 16));
                     }
                     builder.append(source, start, start + len);
-                    builder.append(readEscapeCharacter());
+                    final @Nullable Character escapedChar = readEscapeCharacter();
+                    if (escapedChar != null) {
+                        builder.append(escapedChar);
+                    }
                     posNow = pos;
                     start = posNow;
                 } else if (charAt == LINE_BREAK_CHAR) {
@@ -779,7 +769,7 @@ public class StringJsonReader {
                         result.append(pathNames[i]);
                     }
                 }
-                case JsonScope.NONEMPTY_DOCUMENT, JsonScope.EMPTY_DOCUMENT, JsonScope.CLOSED -> {
+                case JsonScope.NONEMPTY_DOCUMENT, JsonScope.EMPTY_DOCUMENT -> {
                 }
                 default -> throw new AssertionError("Unknown scope value: " + scope);
             }
@@ -793,18 +783,18 @@ public class StringJsonReader {
      * backslash. The backslash '\' should have already been read. This supports both Unicode escapes
      * "u000A" and two-character escapes "\n".
      *
-     * @throws MalformedJsonException if the escape sequence is malformed
      */
-    protected char readEscapeCharacter() throws IOException {
+    protected @Nullable Character readEscapeCharacter() {
         if (pos >= sourceLength) {
-            throw makeSyntaxError("Unterminated escape sequence");
+           return null;
         }
 
         char escaped = source.charAt(pos++);
         switch (escaped) {
             case 'u':
                 if (!canRead(4)) {
-                    throw makeSyntaxError("Unterminated escape sequence");
+                    pos--; // roll back
+                    return null; // unterminated escaped char
                 }
                 // Equivalent to Integer.parseInt(stringPool.get(buffer, pos, 4), 16);
                 int result = 0;
@@ -818,7 +808,8 @@ public class StringJsonReader {
                     } else if (charAt >= 'A' && charAt <= 'F') {
                         result += (charAt - 'A' + 10);
                     } else {
-                        throw makeSyntaxError("Malformed Unicode escape \\u");
+                        pos--; // roll back
+                        return null; // Malformed Unicode escape
                     }
                 }
                 pos += 4;
@@ -847,17 +838,9 @@ public class StringJsonReader {
                  DOUBLE_QUOTE_CHAR, ESCAPE_CHARACTER, SLASH_CHAR:
                 return escaped;
             default:
-                // throw error when none of the above cases are matched
-                throw makeSyntaxError("Invalid escape sequence");
+                pos--; // roll back
+                return null; // Invalid escape sequence
         }
-    }
-
-    /**
-     * Throws a new {@link MalformedJsonException} with the given message and information about the
-     * current location.
-     */
-    protected MalformedJsonException makeSyntaxError(final @NotNull String message) {
-        return new MalformedJsonException(message + locationString() + "\nSee " + TroubleshootingGuide.createUrl("malformed-json"));
     }
 
     public enum PeekStatus {
@@ -881,8 +864,10 @@ public class StringJsonReader {
         UNQUOTED_VALUE,
         NUMBER,
 
-        UNTERMINATED_ARRAY,
-        UNTERMINATED_OBJECT,
+        INVALID_UNTERMINATED_ARRAY,
+        INVALID_UNTERMINATED_OBJECT,
+        INVALID_MISSING_NAME,
+        INVALID_UNKNOWN,
 
         END_DOCUMENT,
     }
@@ -909,10 +894,7 @@ public class StringJsonReader {
         EMPTY_DOCUMENT,
 
         /// A top-level value has already been started.
-        NONEMPTY_DOCUMENT,
-
-        /// A document that's been closed and cannot be accessed.
-        CLOSED
+        NONEMPTY_DOCUMENT
     }
 
     /* State machine when parsing numbers */
