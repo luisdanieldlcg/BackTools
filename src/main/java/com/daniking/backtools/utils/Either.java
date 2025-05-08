@@ -1,5 +1,6 @@
 package com.daniking.backtools.utils;
 
+import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -161,7 +162,7 @@ public abstract class Either<L, R> {
      * @return the contents of the Left if this is a Left.
      * @throws java.util.NoSuchElementException if this is a Right.
      */
-    public abstract L getLeft();
+    public abstract L getLeft() throws NoSuchElementException;
 
     /**
      * Returns the left-side value if this is a Left; otherwise throws the
@@ -190,7 +191,7 @@ public abstract class Either<L, R> {
      * @return the contents of the Right if this is a Right.
      * @throws java.util.NoSuchElementException if this is a Left.
      */
-    public abstract R getRight();
+    public abstract R getRight() throws NoSuchElementException;
 
     /**
      * Returns the right-side value if this is a Right; otherwise throws the

@@ -6,7 +6,6 @@ import com.daniking.backtools.utils.StringJsonReader;
 import com.daniking.backtools.utils.StringJsonReader.PeekStatus;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -25,7 +24,6 @@ import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -140,167 +138,168 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
 
         final @NotNull StringJsonReader jsonReader = new StringJsonReader(inputField);
 
-        try {
-            if (jsonReader.tryBeginObject()) {
-                final boolean isClosed = CLOSED_CURLY_BRACKET_PATTERN.matcher(inputField).find();
-                final @NotNull Set<@NotNull ComponentType<?>> alreadyAddedComponents = new ReferenceArraySet<>();
-                int posBefore = jsonReader.getPosition();
+        if (jsonReader.tryBeginObject()) {
+            boolean isClosed = CLOSED_CURLY_BRACKET_PATTERN.matcher(inputField).find(); // first estimate may be proven wrong later
+            final @NotNull Set<@NotNull ComponentType<?>> alreadyAddedComponents = new ReferenceArraySet<>();
 
-                @NotNull PeekStatus peekStatus = jsonReader.doPeek();
-                while ( // note: no dangling name here. dangling name means we have already seen the end of the object
-                    peekStatus == PeekStatus.SINGLE_QUOTED_NAME ||
-                    peekStatus == PeekStatus.DOUBLE_QUOTED_NAME ||
-                    peekStatus == PeekStatus.UNQUOTED_NAME) {
+            @NotNull PeekStatus peekStatus = jsonReader.doPeek(true);
+            while ( // note: no dangling name here. dangling name means we have already seen the end of the object
+                peekStatus == PeekStatus.SINGLE_QUOTED_NAME ||
+                peekStatus == PeekStatus.DOUBLE_QUOTED_NAME ||
+                peekStatus == PeekStatus.UNQUOTED_NAME) {
 
-                    final boolean isQuoted = peekStatus == PeekStatus.SINGLE_QUOTED_NAME || peekStatus == PeekStatus.DOUBLE_QUOTED_NAME;
-                    final @NotNull Either<@Nullable String, @NotNull String> nameFetchEither = jsonReader.tryNextName();
+                final boolean isQuoted = peekStatus == PeekStatus.SINGLE_QUOTED_NAME || peekStatus == PeekStatus.DOUBLE_QUOTED_NAME;
+                final @NotNull Either<@Nullable String, @NotNull String> nameFetchEither = jsonReader.tryNextName();
 
-                    if (nameFetchEither.isLeft()) {
-                        return List.of(inputField.substring(0, caretPos) + StringJsonReader.DOUBLE_QUOTE_CHAR + inputField.substring(caretPos)); // the rest of the json is invalid
-                    }
-
-                    final @NotNull String componentTypeStr = nameFetchEither.getRight();
-                    final @Nullable ComponentType<?> componentType;
-
-                    if (componentTypeStr.startsWith(EXCLAMATION_MARK)) {
-                        componentType = readComponentType(componentTypeStr.substring(1));
-
-                        if  (componentType != null) {
-                            if (alreadyAddedComponents.add(componentType)) {
-                                posBefore = jsonReader.getPosition();
-
-                                peekStatus = jsonReader.doPeek();
-                                if (posBefore <= caretPos && caretPos < jsonReader.getPosition() &&
-                                    peekStatus == PeekStatus.DANGLING_NAME) {
-                                    return List.of(inputField.substring(0, caretPos) + ":{}" + inputField.substring(caretPos));
-                                }
-
-                                jsonReader.skipValue();
-                            } else {
-                                // throw REPEATED_COMPONENT_EXCEPTION.create(componentType);
-                            }
-                        } else {
-                            if (caretPos == jsonReader.getPosition()) {
-                                final @NotNull List<@NotNull String> suggestedComponents = suggestComponents(EXCLAMATION_MARK, componentTypeStr.substring(1),
-                                    alreadyAddedComponents);
-                                final @NotNull List<@NotNull String> result = new ArrayList<>();
-
-                                if (caretPos < inputField.length()) {
-                                    for (String componentName : suggestedComponents) {
-                                        result.add(inputField.substring(0, posBefore) + componentName + ":{}" + inputField.substring(caretPos + 1));
-                                    }
-                                } else {
-                                    for (String componentName : suggestedComponents) {
-                                        result.add(inputField.substring(0, posBefore) + componentName + ":{}");
-                                    }
-                                }
-
-                                return result;
-                            }
-                        }
-                    } else {
-                        componentType = readComponentType(componentTypeStr);
-
-                        if  (componentType != null) {
-                            if (alreadyAddedComponents.add(componentType)) {
-                                posBefore = jsonReader.getPosition();
-                                peekStatus = jsonReader.doPeek();
-
-                                if (posBefore <= caretPos && caretPos <= jsonReader.getPosition() &&
-                                    peekStatus == PeekStatus.DANGLING_NAME) {
-                                    return List.of(inputField.substring(0, caretPos) + StringJsonReader.KEY_VALUE_SEPARATOR + inputField.substring(caretPos));
-                                }
-
-                                posBefore = jsonReader.getPosition();
-                                switch (jsonReader.doPeek()) {
-                                    case SINGLE_QUOTED_VALUE, DOUBLE_QUOTED_VALUE,
-                                         BEGIN_ARRAY,
-                                         BEGIN_OBJECT,
-                                         UNQUOTED_VALUE, NULL-> { // todo currently we have no assistance in creating component values
-                                        try {
-                                            final @Nullable Object componentValue = readComponentValue(jsonReader, componentType);
-
-                                            if (componentValue != null) {
-                                                // do stuff with value here
-                                            }
-
-                                            if (caretPos == jsonReader.getPosition()) {
-                                                final @NotNull List<@NotNull String> suggestions = new ArrayList<>();
-
-                                                if (inputField.length() > caretPos) {
-                                                    // Handle case when the caret is within the text
-                                                    suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.COMMA_CHAR + inputField.substring(caretPos));
-                                                    if (!isClosed) {
-                                                        BackTools.LOGGER.info("1?");
-                                                        suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR + inputField.substring(caretPos));
-                                                    }
-                                                } else {
-                                                    // Handle case when the caret is at the end
-                                                    suggestions.add(inputField + StringJsonReader.COMMA_CHAR);
-                                                    if (!isClosed) {
-                                                        BackTools.LOGGER.info("2?");
-
-                                                        suggestions.add(inputField + StringJsonReader.CLOSE_OBJECT_CHAR);
-                                                    }
-                                                }
-
-                                                return suggestions;
-                                            }
-                                        } catch (final @NotNull JsonParseException ignored) { // invalid json, can't parse further
-                                            return Collections.emptyList();
-                                        }
-                                    }
-                                    case END_DOCUMENT, // no closing curly bracket, no value
-                                         END_OBJECT, SINGLE_QUOTED_NAME, DOUBLE_QUOTED_NAME, UNQUOTED_NAME, // no value
-                                         END_ARRAY /* unexpected */ -> {
-                                             if (caretPos == posBefore) {
-                                                 return Collections.emptyList();
-                                             }
-                                    }
-                                }
-                            } else {
-                                // throw REPEATED_COMPONENT_EXCEPTION.create(componentType);
-                            }
-                        } else {
-                            if ((isQuoted ? caretPos + 1 : caretPos) == jsonReader.getPosition()) {
-                                final @NotNull List<@NotNull String> suggestedComponents = suggestComponents("", componentTypeStr, alreadyAddedComponents);
-                                final @NotNull List<@NotNull String> result = new ArrayList<>();
-
-                                if (isQuoted || inputField.length() > caretPos) {
-                                    for (String componentName : suggestedComponents) {
-                                        result.add(inputField.substring(0, posBefore) + componentName + inputField.substring(caretPos + 1));
-                                    }
-                                } else {
-                                    for (String componentName : suggestedComponents) {
-                                        result.add(inputField.substring(0, posBefore) + componentName);
-                                    }
-                                }
-
-                                return result;
-                            }
-                        }
-                    }
-
-                    posBefore = jsonReader.getPosition();
-                    peekStatus = jsonReader.doPeek();
+                if (nameFetchEither.isLeft()) {
+                    return List.of(inputField.substring(0, caretPos) + StringJsonReader.DOUBLE_QUOTE_CHAR + inputField.substring(caretPos)); // the rest of the json is invalid
                 }
 
-                // before:
-                // caretPos: 0, jsonReader.getPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+                final @NotNull String componentTypeStr = nameFetchEither.getRight();
+                final @Nullable ComponentType<?> componentType;
 
-                // in:
-                // aretPos: 1, jsonReader.getPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+                if (componentTypeStr.startsWith(EXCLAMATION_MARK)) {
+                    componentType = readComponentType(componentTypeStr.substring(1));
 
-                // after:
-                // caretPos: 2, jsonReader.getPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+                    if (componentType != null) {
+                        if (alreadyAddedComponents.add(componentType)) {
+
+                            peekStatus = jsonReader.doPeek(true);
+                            if (jsonReader.getPreviousPos() <= caretPos && caretPos < jsonReader.getNextPosition() &&
+                                peekStatus == PeekStatus.DANGLING_NAME) {
+                                return List.of(inputField.substring(0, caretPos) + ":{}" + inputField.substring(caretPos));
+                            }
+
+                            jsonReader.skipValue();
+                        } else {
+                            return Collections.emptyList(); // don't recommend anything for repeated values, they have undefined behavior
+                        }
+                    } else {
+                        if (caretPos == jsonReader.getNextPosition()) {
+                            final @NotNull List<@NotNull String> suggestedComponents = suggestComponents(EXCLAMATION_MARK, componentTypeStr.substring(1),
+                                alreadyAddedComponents);
+                            final @NotNull List<@NotNull String> result = new ArrayList<>();
+
+                            if (caretPos < inputField.length()) {
+                                for (String componentName : suggestedComponents) {
+                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + ":{}" + inputField.substring(caretPos + 1));
+                                }
+                            } else {
+                                for (String componentName : suggestedComponents) {
+                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + ":{}");
+                                }
+                            }
+
+                            return result;
+                        }
+                    }
+                } else {
+                    componentType = readComponentType(componentTypeStr);
+
+                    if  (componentType != null) {
+                        if (alreadyAddedComponents.add(componentType)) {
+                            peekStatus = jsonReader.doPeek(true);
+
+                            if (jsonReader.getPreviousPos() <= caretPos && caretPos <= jsonReader.getNextPosition() &&
+                                peekStatus == PeekStatus.DANGLING_NAME) {
+                                return List.of(inputField.substring(0, caretPos) + StringJsonReader.KEY_VALUE_SEPARATOR + inputField.substring(caretPos));
+                            }
+
+                            peekStatus = jsonReader.doPeek(true);
+                            BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getNextPosition(): " + jsonReader.getNextPosition() + ", peekStatus: " + peekStatus);
+                            switch (peekStatus) {
+                                case SINGLE_QUOTED_VALUE, DOUBLE_QUOTED_VALUE,
+                                     BEGIN_ARRAY,
+                                     BEGIN_OBJECT,
+                                     UNQUOTED_VALUE, NULL-> { // todo currently we have no assistance in creating component values
+                                    final @NotNull Either <Boolean, ?> componentValue = readComponentValue(jsonReader, componentType);
+
+                                    if (componentValue.isLeft()) {
+                                        if (componentValue.getLeft()) {
+                                            // invalid json, can't parse further
+                                            return Collections.emptyList();
+                                        }
+                                    } else {
+                                        // do stuff with value here
+                                    }
+
+                                    BackTools.LOGGER.info("miep");
+
+                                    if (caretPos == jsonReader.getNextPosition()) {
+                                        final @NotNull List<@NotNull String> suggestions = new ArrayList<>();
+
+                                        if (inputField.length() > caretPos) {
+                                            // Handle case when the caret is within the text
+                                            suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.COMMA_CHAR + inputField.substring(caretPos));
+                                            if (!isClosed) {
+                                                BackTools.LOGGER.info("1?");
+                                                suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR + inputField.substring(caretPos));
+                                            }
+                                        } else {
+                                            // Handle case when the caret is at the end
+                                            suggestions.add(inputField + StringJsonReader.COMMA_CHAR);
+                                            if (!isClosed) {
+                                                BackTools.LOGGER.info("2?");
+
+                                                suggestions.add(inputField + StringJsonReader.CLOSE_OBJECT_CHAR);
+                                            }
+                                        }
+
+                                        return suggestions;
+                                    } else {
+                                        BackTools.LOGGER.info("4?");
+                                    }
+                                }
+                                case END_DOCUMENT, // no closing curly bracket, no value
+                                     END_OBJECT, SINGLE_QUOTED_NAME, DOUBLE_QUOTED_NAME, UNQUOTED_NAME, // no value
+                                     END_ARRAY /* unexpected */ -> {
+                                         if (caretPos == jsonReader.getPreviousPos()) {
+                                             return Collections.emptyList();
+                                         }
+                                }
+                            }
+                        } else {
+                            return Collections.emptyList(); // don't recommend anything for repeated values, they have undefined behavior
+                        }
+                    } else {
+                        if ((isQuoted ? caretPos + 1 : caretPos) == jsonReader.getNextPosition()) {
+                            final @NotNull List<@NotNull String> suggestedComponents = suggestComponents("", componentTypeStr, alreadyAddedComponents);
+                            final @NotNull List<@NotNull String> result = new ArrayList<>();
+
+                            if (isQuoted || inputField.length() > caretPos) {
+                                for (String componentName : suggestedComponents) {
+                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + inputField.substring(caretPos + 1));
+                                }
+                            } else {
+                                for (String componentName : suggestedComponents) {
+                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName);
+                                }
+                            }
+
+                            return result;
+                        }
+                    }
+                }
+
+                peekStatus = jsonReader.doPeek(true);
+            }
+
+            // before:
+            // caretPos: 0, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+
+            // in:
+            // aretPos: 1, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+
+            // after:
+            // caretPos: 2, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
 
 
-                BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getPosition(): " + jsonReader.getPosition() + ", doPeek: " + jsonReader.doPeek() + ", posBefore: " + posBefore + ", posAfter: " + jsonReader.getPosition());
+            BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getNextPosition(): " + jsonReader.getNextPosition() + ", doPeek: " + jsonReader.doPeek(false) + ", posBefore: " + jsonReader.getPreviousPos() + ", posAfter: " + jsonReader.getNextPosition());
 
-                final @NotNull List<@NotNull String> result = new ArrayList<>();
+            final @NotNull List<@NotNull String> result = new ArrayList<>();
 //                final boolean anyComponentsAdded = !alreadyAddedComponents.isEmpty();
 
-                // Handle positive components
+            // Handle positive components
 //                addComponentsToResult(
 //                    result,
 //                    suggestComponents("", "", alreadyAddedComponents),
@@ -318,21 +317,26 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
 //                    ":{}"
 //                );
 
-                BackTools.LOGGER.info("isClosed? " + isClosed + ", length: " + inputField.replaceAll("\\s+$", "").length() + ", caretPos: " + caretPos);
-                if (!isClosed && inputField.replaceAll("\\s+$", "").length() == caretPos) { // ignore tailing whitespace
-                    BackTools.LOGGER.info("3?");
-                    result.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR);
+            if (!jsonReader.tryEndObject()) {
+                switch (jsonReader.doPeek(false)) {
+                    case INVALID_UNKNOWN,
+                         INVALID_MISSING_NAME,
+                         INVALID_UNTERMINATED_ARRAY,
+                         INVALID_UNTERMINATED_OBJECT -> {
+                        // ignore invalid json, don't try to close it
+                    }
+                    default -> {
+                        if (inputField.replaceAll("\\s+$", "").length() == caretPos) { // ignore tailing whitespace
+                            result.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR);
+                        }
+                    }
                 }
-
-                return result;
-            } else {
-                return List.of(StringJsonReader.OPEN_OBJECT_CHAR + inputField);
             }
-        } catch (final @NotNull IOException ignored) {
-            BackTools.LOGGER.info("Error parsing JSON: ", ignored);
-        }
 
-        return Collections.emptyList();
+            return result;
+        } else {
+            return List.of(StringJsonReader.OPEN_OBJECT_CHAR + inputField);
+        }
     }
 
     private void addComponentsToResult (
@@ -393,21 +397,37 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
         return null;
     }
 
-    private <T> @Nullable T readComponentValue(final @NotNull StringJsonReader jsonReader, final @NotNull ComponentType<T> type) throws JsonParseException {
-        final @NotNull JsonElement jsonElement = JsonParser.parseReader(jsonReader.getPartReaderAtPos());
-        final @Nullable Codec<T> valueCodec = type.getCodec();
+    private <T> Either<@NotNull Boolean, T> readComponentValue(final @NotNull StringJsonReader jsonReader,
+                                               final @NotNull ComponentType<T> type) {
+        try {
+            final @Nullable JsonElement jsonElement = jsonReader.readJsonObject();
 
-        if (valueCodec != null) {
-            final DataResult<Pair<T, JsonElement>> dataResult = valueCodec.decode(BackTools.getConfigHandler().getDynamicJSONOps(), jsonElement);
+            if (jsonElement != null) {
+                final @Nullable Codec<T> valueCodec = type.getCodec();
 
-            if (dataResult.isSuccess()) {
-                return dataResult.getOrThrow().getFirst();
+                if (valueCodec != null) {
+                    final DataResult<Pair<T, JsonElement>> dataResult = valueCodec.decode(BackTools.getConfigHandler().getDynamicJSONOps(), jsonElement);
+
+                    if (dataResult.isSuccess()) {
+                        return Either.right(dataResult.getOrThrow().getFirst());
+                    } else {
+                        BackTools.LOGGER.debug("Got error when decoding '{}' for ComponentType '{}': {}", jsonElement, type, dataResult.error().get().message());
+                        return Either.left(false);
+                    }
+                } else {
+                    BackTools.LOGGER.debug("could not decode '{}', because no codec for ComponentType '{}' could be found", jsonElement, type);
+                    return Either.left(false);
+                }
             } else {
-                BackTools.LOGGER.debug(dataResult.error().get().message());
-            }
-        }
+                BackTools.LOGGER.debug("could not read '{}' at {} as json object", jsonReader, jsonReader.getPreviousPos());
 
-        return null;
+                return Either.left(true);
+            }
+        } catch (final @NotNull JsonParseException parseException) {
+            BackTools.LOGGER.debug("could not read '{}' as json object", jsonReader, parseException);
+
+            return Either.left(true);
+        }
     }
 
     @Override

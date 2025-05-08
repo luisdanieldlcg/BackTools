@@ -1,26 +1,6 @@
 package com.daniking.backtools.utils;
 
-/*
- * This is a heavily modified JsonReader, written by google and licensed under the Apache Licence below.
- * The modifications were made to access the underling position on the input string and to gain access to
- * the internal handled structure of json (without having to deal with exceptions)
- *
- *
- * Copyright (C) 2010 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jetbrains.annotations.NotNull;
@@ -56,12 +36,12 @@ public class StringJsonReader {
 
     protected final @NotNull String source;
     protected final int sourceLength;
-    protected int pos = 0;
+    protected int nextPos = 0;
+    protected int previousPos = nextPos;
 
     protected int lineNumber = 0;
-    protected int lineStart = 0;
 
-    protected @NotNull PeekStatus peeked = PeekStatus.NONE;
+    protected @NotNull PeekStatus peekStatus = PeekStatus.NONE;
 
     /*
      * The nesting stack. Using a manual array rather than an ArrayList saves 20%.
@@ -98,16 +78,16 @@ public class StringJsonReader {
      * @return the position of the last chat that got read. Will start with 0,
      * and end with String length -1.
      */
-    public int getPosition() {
-        return pos;
+    public int getNextPosition() {
+        return nextPos;
+    }
+
+    public int getPreviousPos() {
+        return previousPos;
     }
 
     public @NotNull String getRemaining() {
-        return source.substring(pos);
-    }
-
-    public @NotNull PartReader getPartReaderAtPos() {
-        return new PartReader();
+        return source.substring(nextPos);
     }
 
     /**
@@ -117,14 +97,9 @@ public class StringJsonReader {
      * @return the success status of this action
      */
     public boolean tryBeginObject() {
-        @NotNull PeekStatus peekStatus = peeked;
-        if (peekStatus == PeekStatus.NONE) {
-            peekStatus = doPeek();
-        }
-
-        if (peekStatus == PeekStatus.BEGIN_OBJECT) {
+        if (doPeek(false) == PeekStatus.BEGIN_OBJECT) {
             push(JsonScope.EMPTY_OBJECT);
-            peeked = PeekStatus.NONE;
+            this.peekStatus = PeekStatus.NONE;
             return true;
         } else {
             return false;
@@ -138,15 +113,11 @@ public class StringJsonReader {
      * @return the success status of this action
      */
     public boolean tryEndObject() {
-        @NotNull PeekStatus peekStatus = peeked;
-        if (peekStatus == PeekStatus.NONE) {
-            peekStatus = doPeek();
-        }
-        if (peekStatus == PeekStatus.END_OBJECT) {
+        if (doPeek(false) == PeekStatus.END_OBJECT) {
             stackSize--;
             pathNames[stackSize] = null; // Free the last path name so that it can be garbage collected!
             pathIndices[stackSize - 1]++;
-            peeked = PeekStatus.NONE;
+            this.peekStatus = PeekStatus.NONE;
 
             return true;
         } else {
@@ -154,24 +125,35 @@ public class StringJsonReader {
         }
     }
 
-    public @NotNull PeekStatus doPeek() {
+    public @NotNull PeekStatus doPeek(final boolean forceNext) {
+        if (!forceNext && peekStatus != PeekStatus.NONE) {
+            return peekStatus;
+        }
+
+        final int posBeforePeek = nextPos;
         final @NotNull JsonScope peekStackNow = stack[stackSize - 1];
+
         switch (peekStackNow) {
             case EMPTY_ARRAY -> stack[stackSize - 1] = JsonScope.NONEMPTY_ARRAY;
             case NONEMPTY_ARRAY -> {
                 // Look for a comma before the next element.
                 final @Nullable Character character = nextNonWhitespace();
+
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
+
                 switch (character) {
                     case ARRAY_CLOSE_CHAR -> {
-                        return peeked = PeekStatus.END_ARRAY;
+                        return peekStatus = PeekStatus.END_ARRAY;
                     }
                     case SEMICOLON_CHAR, COMMA_CHAR -> {
                     }
                     case null -> {
-                        return peeked = PeekStatus.END_DOCUMENT;
+                        return peekStatus = PeekStatus.END_DOCUMENT;
                     }
                     default -> {
-                        return peeked = PeekStatus.INVALID_UNTERMINATED_ARRAY;
+                        return peekStatus = PeekStatus.INVALID_UNTERMINATED_ARRAY;
                     }
                 }
             }
@@ -180,18 +162,22 @@ public class StringJsonReader {
                 if (peekStackNow == JsonScope.NONEMPTY_OBJECT) {
                     final @Nullable Character character = nextNonWhitespace();
 
+                    if (posBeforePeek != nextPos) {
+                        previousPos = posBeforePeek;
+                    }
+
                     switch (character) {
                         case CLOSE_OBJECT_CHAR -> {
-                            return peeked = PeekStatus.END_OBJECT;
+                            return peekStatus = PeekStatus.END_OBJECT;
                         }
                         case SEMICOLON_CHAR,
                              COMMA_CHAR -> {
                         }
                         case null -> {
-                            return peeked = PeekStatus.END_DOCUMENT;
+                            return peekStatus = PeekStatus.END_DOCUMENT;
                         }
                         default -> {
-                            return peeked = PeekStatus.INVALID_UNTERMINATED_OBJECT;
+                            return peekStatus = PeekStatus.INVALID_UNTERMINATED_OBJECT;
                         }
                     }
                 }
@@ -200,29 +186,51 @@ public class StringJsonReader {
                 switch (character) {
                     case DOUBLE_QUOTE_CHAR -> {
                         stack[stackSize - 1] = JsonScope.DANGLING_NAME;
-                        return peeked = PeekStatus.DOUBLE_QUOTED_NAME;
+
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
+                        return peekStatus = PeekStatus.DOUBLE_QUOTED_NAME;
                     }
                     case SINGLE_QUOTE_CHAR -> {
                         stack[stackSize - 1] = JsonScope.DANGLING_NAME;
-                        return peeked = PeekStatus.SINGLE_QUOTED_NAME;
+
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+                        return peekStatus = PeekStatus.SINGLE_QUOTED_NAME;
                     }
                     case CLOSE_OBJECT_CHAR -> {
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
                         if (peekStackNow != JsonScope.NONEMPTY_OBJECT) {
-                            return peeked = PeekStatus.END_OBJECT;
+                            return peekStatus = PeekStatus.END_OBJECT;
                         } else {
-                            return peeked = PeekStatus.INVALID_MISSING_NAME;
+                            return peekStatus = PeekStatus.INVALID_MISSING_NAME;
                         }
                     }
                     case null -> {
-                        return peeked = PeekStatus.END_DOCUMENT;
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
+                        return peekStatus = PeekStatus.END_DOCUMENT;
                     }
                     default -> {
-                        pos--; // Don't consume the first character in an unquoted string.
+                        nextPos--; // Don't consume the first character in an unquoted string.
+
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
                         if (isLiteral(character)) {
                             stack[stackSize - 1] = JsonScope.DANGLING_NAME;
-                            return peeked = PeekStatus.UNQUOTED_NAME;
+                            return peekStatus = PeekStatus.UNQUOTED_NAME;
                         } else {
-                            return peeked = PeekStatus.INVALID_MISSING_NAME;
+                            return peekStatus = PeekStatus.INVALID_MISSING_NAME;
                         }
                     }
                 }
@@ -233,15 +241,23 @@ public class StringJsonReader {
                 // Look for a colon before the value.
                 switch (nextNonWhitespace()) {
                     case EQUALS_SIGN:
-                        if (canRead(1) && source.charAt(pos) == '>') {
-                            pos++;
+                        if (canRead(1) && source.charAt(nextPos) == '>') {
+                            nextPos++;
                         }
                     case KEY_VALUE_SEPARATOR:
                         stack[stackSize - 1] = JsonScope.NAME_VALUE_SEPARATOR;
 
-                        return peeked = PeekStatus.NAME_VALUE_SEPARATOR;
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
+                        return peekStatus = PeekStatus.NAME_VALUE_SEPARATOR;
                     case null, default:
-                        return peeked = PeekStatus.DANGLING_NAME;
+                        if (posBeforePeek != nextPos) {
+                            previousPos = posBeforePeek;
+                        }
+
+                        return peekStatus = PeekStatus.DANGLING_NAME;
                 }
             }
             case NAME_VALUE_SEPARATOR -> stack[stackSize - 1] = JsonScope.NONEMPTY_OBJECT;
@@ -249,9 +265,13 @@ public class StringJsonReader {
             case NONEMPTY_DOCUMENT -> {
                 final @Nullable Character character = nextNonWhitespace();
                 if (character == null) {
-                    return peeked = PeekStatus.END_DOCUMENT;
+                    if (posBeforePeek != nextPos) {
+                        previousPos = posBeforePeek;
+                    }
+
+                    return peekStatus = PeekStatus.END_DOCUMENT;
                 } else {
-                    pos--;
+                    nextPos--;
                 }
             }
         }
@@ -260,41 +280,76 @@ public class StringJsonReader {
         switch (character) {
             case ARRAY_CLOSE_CHAR:
                 if (peekStackNow == JsonScope.EMPTY_ARRAY) {
-                    return peeked = PeekStatus.END_ARRAY;
+                    if (posBeforePeek != nextPos) {
+                        previousPos = posBeforePeek;
+                    }
+                    return peekStatus = PeekStatus.END_ARRAY;
                 }
             case SEMICOLON_CHAR, COMMA_CHAR:
                 // a 0-length literal in an array means 'null'.
                 if (peekStackNow == JsonScope.EMPTY_ARRAY || peekStackNow == JsonScope.NONEMPTY_ARRAY) {
-                    pos--;
-                    return peeked = PeekStatus.NULL;
+                    nextPos--;
+
+                    if (posBeforePeek != nextPos) {
+                        previousPos = posBeforePeek;
+                    }
+
+                    return peekStatus = PeekStatus.NULL;
                 } else {
-                    return peeked = PeekStatus.INVALID_UNKNOWN;
+                    if (posBeforePeek != nextPos) {
+                        previousPos = posBeforePeek;
+                    }
+                    return peekStatus = PeekStatus.INVALID_UNKNOWN;
                 }
             case SINGLE_QUOTE_CHAR:
-                return peeked = PeekStatus.SINGLE_QUOTED_VALUE;
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
+                return peekStatus = PeekStatus.SINGLE_QUOTED_VALUE;
             case DOUBLE_QUOTE_CHAR:
-                return peeked = PeekStatus.DOUBLE_QUOTED_VALUE;
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
+                return peekStatus = PeekStatus.DOUBLE_QUOTED_VALUE;
             case ARRAY_OPEN_CHAR:
-                return peeked = PeekStatus.BEGIN_ARRAY;
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
+                return peekStatus = PeekStatus.BEGIN_ARRAY;
             case OPEN_OBJECT_CHAR:
-                return peeked = PeekStatus.BEGIN_OBJECT;
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
+                return peekStatus = PeekStatus.BEGIN_OBJECT;
             case null:
+                if (posBeforePeek != nextPos) {
+                    previousPos = posBeforePeek;
+                }
                 return PeekStatus.END_DOCUMENT;
             default:
-                pos--; // Don't consume the first character in a literal value.
+                nextPos--; // Don't consume the first character in a literal value.
         }
 
         if (readNull(true) ||
             readBoolean(true) != null ||
             readNumber(true) != null) {
-            return peeked;
+
+            if (posBeforePeek != nextPos) {
+                previousPos = posBeforePeek;
+            }
+
+            return peekStatus;
         }
 
-        if (!isLiteral(source.charAt(pos))) {
-            return peeked = PeekStatus.INVALID_UNKNOWN;
+        if (posBeforePeek != nextPos) {
+            previousPos = posBeforePeek;
         }
 
-        return peeked = PeekStatus.UNQUOTED_VALUE;
+        if (!isLiteral(source.charAt(nextPos))) {
+            return peekStatus = PeekStatus.INVALID_UNKNOWN;
+        }
+
+        return peekStatus = PeekStatus.UNQUOTED_VALUE;
     }
 
     /// returns true if the next value is null
@@ -304,15 +359,18 @@ public class StringJsonReader {
         if (nullPattern.matcher(remaining).find()) {
             final int expectedLength = truePattern.pattern().length() - 1;
 
-            if ((canRead(expectedLength + 1)) && isLiteral(source.charAt(pos + expectedLength))) {
+            if ((canRead(expectedLength + 1)) && isLiteral(source.charAt(nextPos + expectedLength))) {
                 return false; // Don't match nullsoft!
             }
 
             // We've found the keyword followed either by EOF or by a non-literal character.
             if (!peek) {
-                pos += expectedLength;
+                previousPos = nextPos;
+                nextPos += expectedLength;
+                peekStatus = PeekStatus.NONE;
+            } else {
+                peekStatus = PeekStatus.NULL;
             }
-            peeked = PeekStatus.NULL;
 
             return true;
         } else {
@@ -335,21 +393,23 @@ public class StringJsonReader {
             return null;
         }
 
-        if ((canRead(expectedLength + 1)) && isLiteral(source.charAt(pos + expectedLength))) {
+        if ((canRead(expectedLength + 1)) && isLiteral(source.charAt(nextPos + expectedLength))) {
             return null; // Don't match trues, falsey!
         }
 
         // We've found the keyword followed either by EOF or by a non-literal character.
         if (!peek) {
-            pos += expectedLength;
+            previousPos = nextPos;
+            nextPos += expectedLength;
+            peekStatus = PeekStatus.NONE;
+        } else {
+            peekStatus = PeekStatus.BOOLEAN;
         }
-
-        peeked = PeekStatus.BOOLEAN;
 
         return result;
     }
 
-    protected @Nullable Number readNumber(final boolean peek) {
+    public @Nullable Number readNumber(final boolean peek) {
         boolean leadingZero = false; // default value never gets used
         @NotNull NumberParsingState last = NumberParsingState.NUMBER_CHAR_NONE;
         int numberLengthLookahead = 0;
@@ -362,7 +422,7 @@ public class StringJsonReader {
                 return null;
             }
 
-            final char charAt = source.charAt(pos + numberLengthLookahead);
+            final char charAt = source.charAt(nextPos + numberLengthLookahead);
             switch (charAt) {
                 case MINUS_SIGN -> {
                     if (last == NumberParsingState.NUMBER_CHAR_NONE) {
@@ -433,15 +493,98 @@ public class StringJsonReader {
             last == NumberParsingState.NUMBER_CHAR_EXP_DIGIT) {
 
             if (!peek) {
-                pos += numberLengthLookahead;
-            }
-            peeked = PeekStatus.NUMBER;
+                previousPos = nextPos;
+                nextPos += numberLengthLookahead;
 
-            return NumberUtils.createNumber(source.substring(pos, pos + numberLengthLookahead));
+                peekStatus = PeekStatus.NONE;
+            } else {
+                peekStatus = PeekStatus.NUMBER;
+            }
+
+            return NumberUtils.createNumber(source.substring(nextPos, nextPos + numberLengthLookahead));
 
         } else {
             return null;
         }
+    }
+
+    public @Nullable JsonElement readJsonObject() throws JsonIOException, JsonSyntaxException {
+        while ( nextPos < sourceLength) {
+            final PeekStatus peekStatus1 = doPeek(false);
+
+            switch (peekStatus1) {
+                case NONE -> { // should never happen
+                    return null;
+                }
+                case SINGLE_QUOTED_NAME -> {
+                    skipQuoted(SINGLE_QUOTE_CHAR);
+                    pathNames[stackSize - 1] = "<skipped>";
+                    peekStatus = PeekStatus.NONE;
+                }
+                case DOUBLE_QUOTED_NAME -> {
+                    nextPos--;
+                    skipQuoted(DOUBLE_QUOTE_CHAR);
+                    pathNames[stackSize - 1] = "<skipped>";
+                    peekStatus = PeekStatus.NONE;
+                }
+                case UNQUOTED_NAME -> {
+                    skipUnquotedValue();
+                    pathNames[stackSize - 1] = "<skipped>";
+                    peekStatus = PeekStatus.NONE;
+                }
+                case DANGLING_NAME,
+                     INVALID_UNTERMINATED_ARRAY,
+                     INVALID_UNTERMINATED_OBJECT,
+                     INVALID_MISSING_NAME,
+                     INVALID_UNKNOWN,
+                     END_DOCUMENT,
+                     END_OBJECT,
+                     END_ARRAY -> {
+                    return null;
+                }
+                case NAME_VALUE_SEPARATOR -> peekStatus = PeekStatus.NONE; // just skip the separator.
+                case SINGLE_QUOTED_VALUE -> {
+                     return tryNextQuoted(SINGLE_QUOTE_CHAR).
+                         mapRight(JsonPrimitive::new).
+                         getRightOrElse(null);
+                }
+                case DOUBLE_QUOTED_VALUE -> {
+                    return tryNextQuoted(DOUBLE_QUOTE_CHAR).
+                        mapRight(JsonPrimitive::new).
+                        getRightOrElse(null);
+                }
+                case UNQUOTED_VALUE -> {
+                    return new JsonPrimitive(nextUnquoted());
+                }
+                case BEGIN_OBJECT,
+                     BEGIN_ARRAY -> {
+                    nextPos = previousPos; // go back before the value started
+                    peekStatus = PeekStatus.NONE;
+
+                    // Use jsonReader directly instead of passing the PartReader to the JsonParser,
+                    // and letting the JsonParser construct the JsonReader.
+                    // Elsewise the JsonParser tries to parse the whole document instead of just the value.
+                    final @NotNull JsonReader jsonReader = new JsonReader(new PartReader());
+                    jsonReader.setStrictness(Strictness.LENIENT);
+
+                    return JsonParser.parseReader(jsonReader);
+                }
+                case BOOLEAN -> {
+                    //noinspection DataFlowIssue
+                    return new JsonPrimitive (readBoolean(false));
+                }
+                case NULL -> {
+                    return JsonNull.INSTANCE;
+                }
+                case NUMBER -> {
+                    //noinspection DataFlowIssue
+                    return new JsonPrimitive (readNumber(false));
+                }
+            }
+        }
+
+        peekStatus = PeekStatus.END_DOCUMENT;
+        return null;
     }
 
     protected boolean isLiteral(final char char_) {
@@ -467,21 +610,16 @@ public class StringJsonReader {
     }
 
     public @NotNull Either<@NotNull String, @NotNull String> tryNextName() {
-        @NotNull PeekStatus peekedStatus = peeked;
-        if (peekedStatus == PeekStatus.NONE) {
-            peekedStatus = doPeek();
-        }
-
         final @NotNull Either<@Nullable String, @NotNull String> result;
-        result = switch (peekedStatus) {
-            case UNQUOTED_NAME -> Either.right(nextUnquotedValue());
+        result = switch (doPeek(false)) {
+            case UNQUOTED_NAME -> Either.right(nextUnquoted());
             case SINGLE_QUOTED_NAME -> tryNextQuoted(SINGLE_QUOTE_CHAR);
             case DOUBLE_QUOTED_NAME -> tryNextQuoted(DOUBLE_QUOTE_CHAR);
             default -> Either.left(null);
         };
 
         if (result.isRight()) {
-            peeked = PeekStatus.NONE;
+            peekStatus = PeekStatus.NONE;
             pathNames[stackSize - 1] = result.getRight();
         }
         return result;
@@ -490,16 +628,22 @@ public class StringJsonReader {
     protected @NotNull Either<@NotNull String, @NotNull String> tryNextQuoted(char quote) {
         // Like nextNonWhitespace, this uses locals 'posNow' to save inner-loop field access.
         StringBuilder builder = null;
+        int posBefore = nextPos;
         while (true) {
-            int posNow = pos;
+            int posNow = nextPos;
             /* the index of the first character not yet appended to the builder. */
             int start = posNow;
             while (posNow < sourceLength) {
                 final char charAt = source.charAt(posNow++);
 
                 if (charAt == quote) {
-                    pos = posNow;
+                    nextPos = posNow;
                     int len = posNow - start - 1;
+
+                    if (posBefore != nextPos) {
+                        previousPos = posBefore;
+                    }
+
                     if (builder == null) {
                         return Either.right(source.substring(start, start + len));
                     } else {
@@ -507,7 +651,7 @@ public class StringJsonReader {
                         return Either.right(builder.toString());
                     }
                 } else if (charAt == ESCAPE_CHARACTER) {
-                    pos = posNow;
+                    nextPos = posNow;
                     int len = posNow - start - 1;
                     if (builder == null) {
                         int estimatedLength = (len + 1) * 2;
@@ -518,11 +662,10 @@ public class StringJsonReader {
                     if (escapedChar != null) {
                         builder.append(escapedChar);
                     }
-                    posNow = pos;
+                    posNow = nextPos;
                     start = posNow;
                 } else if (charAt == LINE_BREAK_CHAR) {
                     lineNumber++;
-                    lineStart = posNow;
                 }
             }
 
@@ -532,8 +675,12 @@ public class StringJsonReader {
             }
 
             builder.append(source, start, posNow);
-            pos = posNow;
+            nextPos = posNow;
             if (!canRead(1)) {
+                if (posBefore != nextPos) {
+                    previousPos = posBefore;
+                }
+
                 return Either.left(builder.toString());
             }
         }
@@ -542,67 +689,26 @@ public class StringJsonReader {
     /**
      * Returns an unquoted value as a string.
      */
-    protected @NotNull String nextUnquotedValue() {
-        StringBuilder builder = null;
-        int i = 0;
+    protected @NotNull String nextUnquoted() {
+        final @NotNull StringBuilder builder = new StringBuilder(16);
+        final int posBefore = nextPos;
 
-        findNonLiteralCharacter:
-        while (true) {
-            for (; pos + i < sourceLength; i++) {
-                switch (source.charAt(pos + i)) {
-                    case SLASH_CHAR,
-                         ESCAPE_CHARACTER,
-                         SEMICOLON_CHAR,
-                         COMMENT_HASH_CHAR,
-                         EQUALS_SIGN,
-                         OPEN_OBJECT_CHAR,
-                         CLOSE_OBJECT_CHAR,
-                         ARRAY_OPEN_CHAR,
-                         ARRAY_CLOSE_CHAR,
-                         KEY_VALUE_SEPARATOR,
-                         COMMA_CHAR,
-                         SPACE_CHAR,
-                         TAB_CHAR,
-                         FROM_FEED_CHAR,
-                         CARRIAGE_RETURN,
-                         LINE_BREAK_CHAR:
-                        break findNonLiteralCharacter;
-                    default:
-                        // skip character to be included in string value
-                }
-            }
+        for (int posNow = nextPos; posNow < sourceLength; posNow++) {
+            final char nextChar = source.charAt(posNow);
 
-            // Attempt to load the entire literal into the buffer at once.
-            if (i < sourceLength) {
-                if (canRead(i + 1)) {
-                    continue;
-                } else {
-                    break;
-                }
-            }
-
-            // use a StringBuilder when the value is too long. This is too long to be a number!
-            if (builder == null) {
-                builder = new StringBuilder(Math.max(i, 16));
-            }
-            builder.append(source, pos, pos + i);
-            pos += i;
-            i = 0;
-            if (!canRead(1)) {
+            if (!isLiteral(nextChar)) {
                 break;
             }
+
+            builder.append(nextChar);
+            nextPos++;
         }
 
-        String result = (builder == null) ? source.substring(pos, pos + i) : builder.append(source, pos, pos + i).toString();
-        pos += i;
-        return result;
-    }
+        if (posBefore != nextPos) {
+            previousPos = posBefore;
+        }
 
-    public void skipValue() throws IOException {
-        // we could parse ourselves and get a bit of speed here,
-        // but that would result in a lot of copied code.
-        // just use the original here
-        new JsonReader(getPartReaderAtPos()).skipValue();
+        return builder.toString();
     }
 
     protected void push(final @NotNull JsonScope newTop) {
@@ -620,16 +726,13 @@ public class StringJsonReader {
      * characters are available, this returns false.
      */
     public boolean canRead(int minimum) {
-        lineStart -= pos; // todo check
-
         // if this is the first time, consume an optional byte order mark (BOM) if it exists
-        if (lineNumber == 0 && lineStart == 0 && source.charAt(0) == '\ufeff') {
-            pos++;
-            lineStart++;
+        if (nextPos == 0 && source.charAt(0) == '\ufeff') {
+            nextPos++;
             minimum++;
         }
 
-        return sourceLength > pos + minimum;
+        return sourceLength > nextPos + minimum;
     }
 
     /**
@@ -646,66 +749,175 @@ public class StringJsonReader {
          * (potentially indirect) call to canRead() and reread
          * 'localPos' after any (potentially indirect) call to the same method.
          */
-        int localPos = pos;
+        int localPos = nextPos;
         while (true) {
             if (localPos == sourceLength) {
-                pos = localPos;
+                nextPos = localPos;
                 break;
             }
 
             final char charAt = source.charAt(localPos++);
             if (charAt == LINE_BREAK_CHAR) {
                 lineNumber++;
-                lineStart = localPos;
                 continue;
             } else if (charAt == SPACE_CHAR || charAt == CARRIAGE_RETURN || charAt == TAB_CHAR) {
                 continue;
             }
 
             if (charAt == '/') {
-                pos = localPos;
+                nextPos = localPos;
                 if (localPos == sourceLength) {
                     if (!canRead(1)) {
                         return charAt;
                     }
                 }
 
-                char peek = source.charAt(pos);
+                char peek = source.charAt(nextPos);
                 switch (peek) {
                     case '*' -> {
                         // skip a /* charAt-style comment */
-                        pos++;
+                        nextPos++;
                         if (!skipComment()) {
                             return null; // Unterminated comment
                         }
-                        localPos = pos + 2;
+                        localPos = nextPos + 2;
                     }
                     case '/' -> {
                         // skip a // end-of-line comment
-                        pos++;
+                        nextPos++;
                         skipToEndOfLine();
-                        localPos = pos;
+                        localPos = nextPos;
                     }
                     default -> {
                         return charAt;
                     }
                 }
             } else if (charAt == COMMENT_HASH_CHAR) {
-                pos = localPos;
+                nextPos = localPos;
                 /*
                  * Skip a # hash end-of-line comment. The JSON RFC doesn't
                  * specify this behaviour, but it's required to parse
                  * existing documents. See http://b/2571423.
                  */
                 skipToEndOfLine();
-                localPos = pos;
+                localPos = nextPos;
             } else {
-                pos = localPos;
+                nextPos = localPos;
                 return charAt;
             }
         }
 
         return null;
+    }
+
+    public void skipValue() {
+        int count = 0;
+        do {
+            switch (doPeek(false)) {
+                case PeekStatus.BEGIN_ARRAY -> {
+                    push(JsonScope.EMPTY_ARRAY);
+                    count++;
+                }
+                case PeekStatus.BEGIN_OBJECT -> {
+                    push(JsonScope.EMPTY_OBJECT);
+                    count++;
+                }
+                case PeekStatus.END_ARRAY -> {
+                    stackSize--;
+                    count--;
+                }
+                case PeekStatus.END_OBJECT -> {
+                    // Only update when object end is explicitly skipped, otherwise stack is not updated
+                    // anyways
+                    if (count == 0) {
+                        // Free the last path name so that it can be garbage collected
+                        pathNames[stackSize - 1] = null;
+                    }
+                    stackSize--;
+                    count--;
+                }
+                case PeekStatus.UNQUOTED_VALUE -> skipUnquotedValue();
+                case PeekStatus.SINGLE_QUOTED_VALUE -> skipQuoted(SINGLE_QUOTE_CHAR);
+                case PeekStatus.DOUBLE_QUOTED_VALUE -> skipQuoted(DOUBLE_QUOTE_CHAR);
+                case PeekStatus.UNQUOTED_NAME -> {
+                    skipUnquotedValue();
+                    // Only update when name is explicitly skipped, otherwise stack is not updated anyways
+                    if (count == 0) {
+                        pathNames[stackSize - 1] = "<skipped>";
+                    }
+                }
+                case NONE -> { // never happens
+                }
+                case PeekStatus.SINGLE_QUOTED_NAME -> {
+                    skipQuoted(SINGLE_QUOTE_CHAR);
+                    // Only update when name is explicitly skipped, otherwise stack is not updated anyways
+                    if (count == 0) {
+                        pathNames[stackSize - 1] = "<skipped>";
+                    }
+                }
+                case PeekStatus.DOUBLE_QUOTED_NAME -> {
+                    skipQuoted(DOUBLE_QUOTE_CHAR);
+                    // Only update when name is explicitly skipped, otherwise stack is not updated anyways
+                    if (count == 0) {
+                        pathNames[stackSize - 1] = "<skipped>";
+                    }
+                }
+                case PeekStatus.NUMBER -> readNumber(false);
+                case PeekStatus.END_DOCUMENT,
+                     INVALID_UNTERMINATED_ARRAY,
+                     INVALID_UNTERMINATED_OBJECT,
+                     INVALID_MISSING_NAME,
+                     INVALID_UNKNOWN,
+                     DANGLING_NAME -> {
+                    // can't do anything here
+                    return;
+                }
+                case NAME_VALUE_SEPARATOR -> {
+                    // just skip to value
+                }
+                case BOOLEAN -> readBoolean(false);
+                case NULL -> readNull(false);
+                default -> {
+                    // For all other tokens there is nothing to do; token has already been consumed from
+                    // underlying reader
+                }
+            }
+            peekStatus = PeekStatus.NONE;
+        } while (count > 0);
+
+        pathIndices[stackSize - 1]++;
+    }
+
+    private void skipUnquotedValue() {
+        for (int i = 0; nextPos + i < sourceLength; i++) {
+            if (!isLiteral(source.charAt(nextPos + i))) {
+                nextPos += i;
+                return;
+            }
+            // skip the character
+        }
+
+        nextPos = sourceLength -1;
+    }
+
+    private void skipQuoted(final char quoteChar) {
+        // Like nextNonWhitespace, this uses local 'localPos' to save inner-loop field access.
+        int localPos = nextPos;
+        while (localPos < sourceLength) {
+            final char charAt = source.charAt(localPos++);
+
+            if (charAt == quoteChar) {
+                nextPos = localPos;
+                return;
+            } else if (charAt == ESCAPE_CHARACTER) {
+                nextPos = localPos;
+                @SuppressWarnings("unused")
+                final @Nullable Character unused = readEscapeCharacter(); // assign to a var, so the compiler can't optimize the call away
+                localPos = nextPos;
+            } else if (charAt == LINE_BREAK_CHAR) {
+                lineNumber++;
+            }
+        }
     }
 
     /**
@@ -714,10 +926,9 @@ public class StringJsonReader {
      */
     protected void skipToEndOfLine() {
         while (canRead(1)) {
-            final char charAt =source.charAt(pos++);
+            final char charAt =source.charAt(nextPos++);
             if (charAt == LINE_BREAK_CHAR) {
                 lineNumber++;
-                lineStart = pos;
                 break;
             } else if (charAt == CARRIAGE_RETURN) {
                 break;
@@ -726,17 +937,16 @@ public class StringJsonReader {
     }
 
     protected boolean skipComment() {
-        for (; canRead(2); pos++) {
-            if (source.charAt(pos) == LINE_BREAK_CHAR) {
+        for (; canRead(2); nextPos++) {
+            if (source.charAt(nextPos) == LINE_BREAK_CHAR) {
                 lineNumber++;
-                lineStart = pos + 1;
                 continue;
             }
 
-            if (source.charAt(pos) != '*') {
+            if (source.charAt(nextPos) != '*') {
                 continue;
             }
-            if (source.charAt(pos + 1) != '/') {
+            if (source.charAt(nextPos + 1) != '/') {
                 continue;
             }
 
@@ -752,7 +962,7 @@ public class StringJsonReader {
 
     protected @NotNull String locationString() {
         int line = lineNumber + 1;
-        int column = pos - lineStart + 1;
+        int column = nextPos - 1;
         return " at line " + line + " column " + column + " path " + getPath();
     }
 
@@ -785,20 +995,20 @@ public class StringJsonReader {
      *
      */
     protected @Nullable Character readEscapeCharacter() {
-        if (pos >= sourceLength) {
+        if (nextPos >= sourceLength) {
            return null;
         }
 
-        char escaped = source.charAt(pos++);
+        char escaped = source.charAt(nextPos++);
         switch (escaped) {
             case 'u':
                 if (!canRead(4)) {
-                    pos--; // roll back
+                    nextPos--; // roll back
                     return null; // unterminated escaped char
                 }
                 // Equivalent to Integer.parseInt(stringPool.get(buffer, pos, 4), 16);
                 int result = 0;
-                for (int i = pos, end = pos + 4; i < end; i++) {
+                for (int i = nextPos, end = nextPos + 4; i < end; i++) {
                     final char charAt = source.charAt(i);
                     result <<= 4;
                     if (charAt >= '0' && charAt <= '9') {
@@ -808,11 +1018,11 @@ public class StringJsonReader {
                     } else if (charAt >= 'A' && charAt <= 'F') {
                         result += (charAt - 'A' + 10);
                     } else {
-                        pos--; // roll back
+                        nextPos--; // roll back
                         return null; // Malformed Unicode escape
                     }
                 }
-                pos += 4;
+                nextPos += 4;
                 return (char) result;
 
             case 't':
@@ -831,14 +1041,13 @@ public class StringJsonReader {
 
             case LINE_BREAK_CHAR:
                 lineNumber++;
-                lineStart = pos;
                 // fall-through
 
             case SINGLE_QUOTE_CHAR,
                  DOUBLE_QUOTE_CHAR, ESCAPE_CHARACTER, SLASH_CHAR:
                 return escaped;
             default:
-                pos--; // roll back
+                nextPos--; // roll back
                 return null; // Invalid escape sequence
         }
     }
@@ -909,6 +1118,7 @@ public class StringJsonReader {
         NUMBER_CHAR_EXP_DIGIT
     }
 
+    @SuppressWarnings("SynchronizeOnNonFinalField")
     public class PartReader extends Reader {
 
         protected PartReader() {
@@ -918,10 +1128,10 @@ public class StringJsonReader {
         public int read() throws IOException {
             synchronized (lock) {
                 ensureOpen();
-                if (pos >= sourceLength) {
+                if (nextPos >= sourceLength) {
                     return -1;
                 }
-                return source.charAt(pos++);
+                return source.charAt(nextPos++);
             }
         }
 
@@ -933,12 +1143,12 @@ public class StringJsonReader {
                 if (len == 0) {
                     return 0;
                 }
-                if (pos >= sourceLength) {
+                if (nextPos >= sourceLength) {
                     return -1;
                 }
-                int charsRead = Math.min(sourceLength - pos, len);
-                source.getChars(pos, pos + charsRead, cbuf, off);
-                pos += charsRead;
+                int charsRead = Math.min(sourceLength - nextPos, len);
+                source.getChars(nextPos, nextPos + charsRead, cbuf, off);
+                nextPos += charsRead;
 
                 return charsRead;
             }
@@ -948,13 +1158,13 @@ public class StringJsonReader {
         public long skip(long numberCharsMaxToSkip) throws IOException {
             synchronized (lock) {
                 ensureOpen();
-                if (pos >= sourceLength) {
+                if (nextPos >= sourceLength) {
                     return 0;
                 }
 
                 // Bound skip by beginning and end of the source
-                final long numberCharsToSkip = Math.clamp(numberCharsMaxToSkip, -pos, sourceLength - pos);
-                pos += (int)numberCharsToSkip;
+                final long numberCharsToSkip = Math.clamp(numberCharsMaxToSkip, -nextPos, sourceLength - nextPos);
+                nextPos += (int)numberCharsToSkip;
                 return numberCharsToSkip;
             }
         }
@@ -967,7 +1177,7 @@ public class StringJsonReader {
         }
 
         public void ensureOpen() throws IOException {
-            if (pos > sourceLength) {
+            if (nextPos > sourceLength) {
                 throw new IOException("Stream closed");
             }
         }
@@ -978,7 +1188,7 @@ public class StringJsonReader {
         @Override
         public void close() {
             synchronized (lock) {
-                pos = Integer.MAX_VALUE;
+                nextPos = Integer.MAX_VALUE;
             }
         }
     }

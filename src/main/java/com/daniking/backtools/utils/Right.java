@@ -20,7 +20,7 @@ final class Right<L, R> extends Either<L, R> {
     }
 
     @Override
-    public L getLeft() {
+    public L getLeft() throws NoSuchElementException {
         throw new NoSuchElementException();
     }
 
