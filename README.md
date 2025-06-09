@@ -28,7 +28,6 @@ The config file is located in `config/backtools.json5`, and looks like this:
   disabledTools: [],
   // Tool orientation, by class file and degrees. Separate with ":" . See defaults for examples.
   toolOrientation: [
-    "net.minecraft.item.ToolItem:0",
     "net.minecraft.item.HoeItem:0",
     "net.minecraft.item.FishingRodItem:0",
     "net.minecraft.item.TridentItem:0",
