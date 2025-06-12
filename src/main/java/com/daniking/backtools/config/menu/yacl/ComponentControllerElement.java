@@ -23,6 +23,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Range;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -151,6 +152,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 final boolean isQuoted = peekStatus == PeekStatus.SINGLE_QUOTED_NAME || peekStatus == PeekStatus.DOUBLE_QUOTED_NAME;
                 final @NotNull Either<@Nullable String, @NotNull String> nameFetchEither = jsonReader.tryNextName();
 
+                // note: because we don't know where this name ends, we can't make any suggestions until we got a closing quote char
                 if (nameFetchEither.isLeft()) {
                     return List.of(inputField.substring(0, caretPos) + StringJsonReader.DOUBLE_QUOTE_CHAR + inputField.substring(caretPos)); // the rest of the json is invalid
                 }
@@ -176,21 +178,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                         }
                     } else {
                         if (caretPos == jsonReader.getNextPosition()) {
-                            final @NotNull List<@NotNull String> suggestedComponents = suggestComponents(EXCLAMATION_MARK, componentTypeStr.substring(1),
-                                alreadyAddedComponents);
-                            final @NotNull List<@NotNull String> result = new ArrayList<>();
-
-                            if (caretPos < inputField.length()) {
-                                for (String componentName : suggestedComponents) {
-                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + ":{}" + inputField.substring(caretPos + 1));
-                                }
-                            } else {
-                                for (String componentName : suggestedComponents) {
-                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + ":{}");
-                                }
-                            }
-
-                            return result;
+                            return addComponentsToResult(componentTypeStr.substring(1), alreadyAddedComponents, jsonReader.getPreviousPos(), isQuoted ? caretPos : caretPos + 1, isQuoted, false, ComponentStatus.REMOVE);
                         }
                     }
                 } else {
@@ -206,7 +194,6 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                             }
 
                             peekStatus = jsonReader.doPeek(true);
-                            BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getNextPosition(): " + jsonReader.getNextPosition() + ", peekStatus: " + peekStatus);
                             switch (peekStatus) {
                                 case SINGLE_QUOTED_VALUE, DOUBLE_QUOTED_VALUE,
                                      BEGIN_ARRAY,
@@ -223,8 +210,6 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                                         // do stuff with value here
                                     }
 
-                                    BackTools.LOGGER.info("miep");
-
                                     if (caretPos == jsonReader.getNextPosition()) {
                                         final @NotNull List<@NotNull String> suggestions = new ArrayList<>();
 
@@ -232,22 +217,17 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                                             // Handle case when the caret is within the text
                                             suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.COMMA_CHAR + inputField.substring(caretPos));
                                             if (!isClosed) {
-                                                BackTools.LOGGER.info("1?");
                                                 suggestions.add(inputField.substring(0, caretPos) + StringJsonReader.CLOSE_OBJECT_CHAR + inputField.substring(caretPos));
                                             }
                                         } else {
                                             // Handle case when the caret is at the end
                                             suggestions.add(inputField + StringJsonReader.COMMA_CHAR);
                                             if (!isClosed) {
-                                                BackTools.LOGGER.info("2?");
-
                                                 suggestions.add(inputField + StringJsonReader.CLOSE_OBJECT_CHAR);
                                             }
                                         }
 
                                         return suggestions;
-                                    } else {
-                                        BackTools.LOGGER.info("4?");
                                     }
                                 }
                                 case END_DOCUMENT, // no closing curly bracket, no value
@@ -263,20 +243,7 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                         }
                     } else {
                         if ((isQuoted ? caretPos + 1 : caretPos) == jsonReader.getNextPosition()) {
-                            final @NotNull List<@NotNull String> suggestedComponents = suggestComponents("", componentTypeStr, alreadyAddedComponents);
-                            final @NotNull List<@NotNull String> result = new ArrayList<>();
-
-                            if (isQuoted || inputField.length() > caretPos) {
-                                for (String componentName : suggestedComponents) {
-                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName + inputField.substring(caretPos + 1));
-                                }
-                            } else {
-                                for (String componentName : suggestedComponents) {
-                                    result.add(inputField.substring(0, jsonReader.getPreviousPos()) + componentName);
-                                }
-                            }
-
-                            return result;
+                            return addComponentsToResult(componentTypeStr, alreadyAddedComponents, jsonReader.getPreviousPos(), isQuoted ? caretPos : caretPos + 1, isQuoted, false, ComponentStatus.ADD);
                         }
                     }
                 }
@@ -284,46 +251,30 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 peekStatus = jsonReader.doPeek(true);
             }
 
-            // before:
-            // caretPos: 0, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
 
-            // in:
-            // aretPos: 1, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+            final @NotNull List<@NotNull String> result;
+            switch (jsonReader.doPeek(false)) {
+                case END_OBJECT,
+                     INVALID_UNTERMINATED_OBJECT,
+                     INVALID_MISSING_NAME,
+                     END_DOCUMENT -> {
+                    result = new ArrayList<>(
+                        addComponentsToResult("", alreadyAddedComponents, jsonReader.getPreviousPos(), jsonReader.getPreviousPos(),false, !alreadyAddedComponents.isEmpty(), ComponentStatus.BOTH)
+                    );
+                }
 
-            // after:
-            // caretPos: 2, jsonReader.getNextPosition(): 2, jsonReader.structurePeek(): END_OBJECT, posBefore: 0
+                default -> result = new ArrayList<>();
+            }
 
-
-            BackTools.LOGGER.info("caretPos: " + caretPos + ", jsonReader.getNextPosition(): " + jsonReader.getNextPosition() + ", doPeek: " + jsonReader.doPeek(false) + ", posBefore: " + jsonReader.getPreviousPos() + ", posAfter: " + jsonReader.getNextPosition());
-
-            final @NotNull List<@NotNull String> result = new ArrayList<>();
-//                final boolean anyComponentsAdded = !alreadyAddedComponents.isEmpty();
-
-            // Handle positive components
-//                addComponentsToResult(
-//                    result,
-//                    suggestComponents("", "", alreadyAddedComponents),
-//                    anyComponentsAdded,
-//                    caretPos,
-//                    ""
-//                );
-//
-//                // Handle negative components
-//                addComponentsToResult(
-//                    result,
-//                    suggestComponents("!", "", alreadyAddedComponents),
-//                    anyComponentsAdded,
-//                    caretPos,
-//                    ":{}"
-//                );
 
             if (!jsonReader.tryEndObject()) {
                 switch (jsonReader.doPeek(false)) {
                     case INVALID_UNKNOWN,
-                         INVALID_MISSING_NAME,
+                         //INVALID_MISSING_NAME,
                          INVALID_UNTERMINATED_ARRAY,
                          INVALID_UNTERMINATED_OBJECT -> {
                         // ignore invalid json, don't try to close it
+                        return Collections.emptyList();
                     }
                     default -> {
                         if (inputField.replaceAll("\\s+$", "").length() == caretPos) { // ignore tailing whitespace
@@ -339,48 +290,122 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
         }
     }
 
-    private void addComponentsToResult (
-        final @NotNull List <@NotNull String> result,
-        final @NotNull List<@NotNull String> componentTypesToAdd,
-        final boolean insertComma,
-        final int pos,
-        final @NotNull String suffix
-    ){
-        boolean hasRemainingInput = inputField.length() > pos;
-        String comma = insertComma ? String.valueOf(StringJsonReader.COMMA_CHAR) : "";
-        String remaining = hasRemainingInput ? inputField.substring(pos) : "";
+    protected List<String> addComponentsToResult(final @NotNull String componentTypePart,
+                                                 final @NotNull Set<ComponentType<?>> alreadyAdded,
+                                                 final @Range(from = 0, to = Integer.MAX_VALUE) int startPos,
+                                                 final @Range(from = -1, to = Integer.MAX_VALUE) int remainingPos,
+                                                 final boolean alreadyQuoted, final boolean insertComma,
+                                                 final @NotNull ComponentStatus componentStatus) {
+        final @NotNull List<@NotNull String> componentTypesToAdd = new ArrayList<>();
 
-        BackTools.LOGGER.info("adding components to result: " + componentTypesToAdd.size() + ", insertComma: " + insertComma + ", suffix: " + suffix + ", remaining: " + remaining + ", pos: " + pos);
+        final @Nullable String remaining = inputField.length() > remainingPos ? inputField.substring(remainingPos) : null;
+        final String substringBefore = inputField.substring(0, startPos);
 
-        for (String componentName : componentTypesToAdd) {
-            result.add(
-                inputField.substring(0, pos) +
-                comma + componentName + suffix +
-                remaining
-            );
-        }
-    }
-
-    protected List<String> suggestComponents(final @NotNull String prefix, final @NotNull String componentTypePart,
-                                                           final @NotNull Set<ComponentType<?>> alreadyAdded) {
-        final @NotNull List<@NotNull String> result = new ArrayList<>();
 
         CommandSource.forEachMatching(Registries.DATA_COMPONENT_TYPE.getEntrySet(), componentTypePart, (entry) -> (entry.getKey()).getValue(),
             entry -> {
                 ComponentType<?> componentType = entry.getValue();
 
-                if (!alreadyAdded.contains(componentType) && componentType.getCodec() != null) {
+                if (!alreadyAdded.contains(componentType) && !componentType.shouldSkipSerialization()) {
                     final @NotNull Identifier identifier = entry.getKey().getValue();
+                    final @NotNull StringBuilder builder = new StringBuilder();
 
-                    if (identifier.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) {
-                        result.add(prefix + identifier.getPath());
+                    if (identifier.getNamespace().equals(Identifier.DEFAULT_NAMESPACE) && !componentTypePart.startsWith(Identifier.DEFAULT_NAMESPACE)) {
+                        // Handle ADD or BOTH statuses
+                        if (componentStatus != ComponentStatus.REMOVE) {
+                            builder.append(substringBefore);
+                            if (insertComma) {
+                                builder.append(StringJsonReader.COMMA_CHAR);
+                            }
+
+                            if (!alreadyQuoted) {
+                                builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                            }
+                            builder.append(identifier.getPath());
+                            if (!alreadyQuoted) {
+                                builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                            }
+
+                            if (remaining != null) {
+                                builder.append(remaining);
+                            }
+
+                            componentTypesToAdd.add(builder.toString());
+                        }
+
+                        // Handle REMOVE or BOTH statuses
+                        if (componentStatus != ComponentStatus.ADD) {
+                            builder.setLength(0);  // Reset StringBuilder for new string
+                            builder.append(substringBefore);
+                            if (insertComma) {
+                                builder.append(StringJsonReader.COMMA_CHAR);
+                            }
+
+                            if (!alreadyQuoted) {
+                                builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                            }
+                            builder.append(EXCLAMATION_MARK);
+                            builder.append(identifier.getPath());
+                            if (!alreadyQuoted) {
+                                builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                            }
+
+                            builder.append(":{}");
+
+                            if (remaining != null) {
+                                builder.append(remaining);
+                            }
+
+                            componentTypesToAdd.add(builder.toString());
+                        }
                     }
 
-                    result.add('"' + prefix + identifier + '"'); // always quote namespaced identifiers since the colon would get mistaken as value separator in JSON otherwise
+                    // Handle ADD or BOTH statuses (outside of namespace condition)
+                    if (componentStatus != ComponentStatus.REMOVE) {
+                        builder.setLength(0);  // Reset StringBuilder for new string
+                        builder.append(substringBefore);
+                        if (insertComma) {
+                            builder.append(StringJsonReader.COMMA_CHAR);
+                        }
+
+                        if (!alreadyQuoted) {
+                            builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                        }
+
+                        builder.append(identifier).append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+
+                        if (remaining != null) {
+                            builder.append(remaining);
+                        }
+
+                        componentTypesToAdd.add(builder.toString());
+                    }
+
+                    // Handle REMOVE or BOTH statuses (outside of namespace condition)
+                    if (componentStatus != ComponentStatus.ADD) {
+                        builder.setLength(0);  // Reset StringBuilder for new string
+                        builder.append(substringBefore);
+
+                        if (insertComma) {
+                            builder.append(StringJsonReader.COMMA_CHAR);
+                        }
+
+                        if (!alreadyQuoted) {
+                            builder.append(StringJsonReader.DOUBLE_QUOTE_CHAR);
+                        }
+
+                        builder.append(EXCLAMATION_MARK).append(identifier).append(StringJsonReader.DOUBLE_QUOTE_CHAR).append(":{}");
+
+                        if (remaining != null) {
+                            builder.append(remaining);
+                        }
+
+                        componentTypesToAdd.add(builder.toString());
+                    }
                 }
             });
 
-        return result;
+        return componentTypesToAdd;
     }
 
     protected static @Nullable ComponentType<?> readComponentType(final @NotNull String componentTypeStr) {
@@ -459,16 +484,16 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                     int renderedLeftLength = textRenderer.getWidth(left);
                     int renderedRightLength = textRenderer.getWidth(right);
 
-                    BackTools.LOGGER.info("combindedWidth: " + combindedWidth + ", maxWidth: " + maxWidth + ", left: " + left  +" (" + ((double)renderedLeftLength / combindedWidth) + "), right: " + right + " (" + ((double)renderedRightLength / combindedWidth) + ")" );
+                  //  BackTools.LOGGER.info("combindedWidth: " + combindedWidth + ", maxWidth: " + maxWidth + ", left: " + left  +" (" + ((double)renderedLeftLength / combindedWidth) + "), right: " + right + " (" + ((double)renderedRightLength / combindedWidth) + ")" );
 
                     if ((double) renderedLeftLength / combindedWidth >= 0.8) {
-                        BackTools.LOGGER.info("Left string is too long: " + left);
+                      //  BackTools.LOGGER.info("Left string is too long: " + left);
                         left = left.substring(Math.min(left.length(), 1 + (ellipsis.length() + 1)));
                         left = ellipsis + left;
                     }
 
                     if ((double) renderedRightLength / combindedWidth >= 0.2) {
-                        BackTools.LOGGER.info("right string is too long: " + right);
+                    //    BackTools.LOGGER.info("right string is too long: " + right);
                         right = right.substring(0, Math.max(right.length() - 1 - (ellipsis.length() + 1), 0));
                         right += ellipsis;
                     }
@@ -482,5 +507,11 @@ public class ComponentControllerElement extends AbstractDropdownControllerElemen
                 return Text.literal(GuiUtils.shortenString(string, textRenderer, maxWidth, ellipsis));
             }
         }
+    }
+
+    protected enum ComponentStatus {
+        REMOVE,
+        BOTH,
+        ADD
     }
 }
